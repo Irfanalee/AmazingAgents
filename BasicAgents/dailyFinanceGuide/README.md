@@ -1,5 +1,10 @@
 # Financial Analysis Agent
 
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Agno](https://img.shields.io/badge/Agno-FF6B6B?style=for-the-badge&logo=robot&logoColor=white)
+![YFinance](https://img.shields.io/badge/YFinance-FFD700?style=for-the-badge&logo=yahoo&logoColor=black)
+
 AI-powered stock analysis agent using Gemini + AgentOS with real-time market data.
 
 ## Features
