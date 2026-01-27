@@ -3,14 +3,17 @@ Financial Analysis Agent powered by Gemini + AgentOS
 Real-time stock data with web search capabilities
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from agno.agent import Agent
 from agno.models.google import Gemini
 from agno.tools.yfinance import YFinanceTools
-from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.tools.websearch import WebSearchTools
+from agno.tools.financial_datasets import FinancialDatasetsTools
 from agno.os import AgentOS
-from agno.storage.sqlite import SqliteStorage
 
-# Agent Instructions
+# Agent Instructions --- Detailed formatting rules for financial data and analysis
 FINANCE_AGENT_INSTRUCTIONS = """
 You are a professional financial analyst providing structured market insights.
 
@@ -49,34 +52,14 @@ Search for "[stock] site:levelfields.ai" to find:
 # Initialize Financial Agent
 financial_agent = Agent(
     name="Financial Analyst",
-    agent_id="finance-analyst-v1",
-    model=Gemini(id="gemini-2.0-flash"),
+    id="finance-analyst-v1",
+    model=Gemini(id="gemini-1.5-flash"),
     tools=[
-        YFinanceTools(
-            stock_price=True,
-            stock_fundamentals=True,
-            income_statements=True,
-            balance_sheets=True,
-            cash_flow_statements=True,
-            key_financial_ratios=True,
-            analyst_recommendations=True,
-            company_news=True,
-            historical_prices=True,
-        ),
-        DuckDuckGoTools(
-            search=True,
-            news=True,
-        ),
+        YFinanceTools(),
+        WebSearchTools(),
+        FinancialDatasetsTools()
     ],
-    instructions=FINANCE_AGENT_INSTRUCTIONS,
-    storage=SqliteStorage(
-        table_name="financial_agent_sessions",
-        db_file="data/finance_agent.db",
-    ),
-    add_history_to_messages=True,
-    num_history_responses=5,
-    markdown=True,
-    show_tool_calls=True,
+    instructions=FINANCE_AGENT_INSTRUCTIONS
 )
 
 # Initialize AgentOS

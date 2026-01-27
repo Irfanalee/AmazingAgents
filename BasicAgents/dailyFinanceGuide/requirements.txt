@@ -1,6 +1,9 @@
 agno
 google-generativeai
+google-genai
 yfinance
-duckduckgo-search
+ddgs
 uvicorn
+fastapi
+PyJWT
 python-dotenv
