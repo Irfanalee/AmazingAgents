@@ -1,0 +1,6 @@
+agno
+google-generativeai
+yfinance
+duckduckgo-search
+uvicorn
+python-dotenv
