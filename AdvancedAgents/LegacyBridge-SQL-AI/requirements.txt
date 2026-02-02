@@ -1,0 +1,17 @@
+# Core MCP dependencies (for MCP server mode)
+mcp>=0.9.0
+
+# Anthropic API (for standalone API mode)
+anthropic>=0.39.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Database
+# sqlite3 is included in Python standard library
+
+# Development dependencies (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+ruff>=0.1.0
