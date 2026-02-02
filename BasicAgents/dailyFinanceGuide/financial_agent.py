@@ -53,7 +53,7 @@ Search for "[stock] site:levelfields.ai" to find:
 financial_agent = Agent(
     name="Financial Analyst",
     id="finance-analyst-v1",
-    model=Gemini(id="gemini-1.5-flash"),
+    model=Gemini(id="gemini-2.0-flash"),
     tools=[
         YFinanceTools(),
         WebSearchTools(),
