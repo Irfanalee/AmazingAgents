@@ -1,0 +1,11 @@
+/data
+.env
+
+.ds_store
+.gitignore@
+
+.vscode/
+
+
+src/__pycache__/
+__pycache__/*.pyc
