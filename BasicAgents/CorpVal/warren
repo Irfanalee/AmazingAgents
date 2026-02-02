@@ -1,0 +1,5 @@
+#!/bin/bash
+# Warren M&A Valuation Expert Command Wrapper
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+python3 "$SCRIPT_DIR/warren.py" "$@"
