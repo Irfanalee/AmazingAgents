@@ -1,0 +1,13 @@
+# Technical Terminology Translator - Dependencies
+
+# Streamlit for the web interface
+streamlit>=1.32.0
+
+# Agno (formerly phidata) for the AI agent framework
+agno>=1.0.0
+
+# OpenAI for the language model
+openai>=1.0.0
+
+# Load environment variables from .env file
+python-dotenv>=1.0.0

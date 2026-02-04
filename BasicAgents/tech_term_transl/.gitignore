@@ -1,0 +1,8 @@
+# Environment variables - NEVER commit API keys
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
