@@ -1,0 +1,112 @@
+name: Manual Security Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      severity:
+        description: 'Severity levels to include'
+        required: false
+        default: 'CRITICAL HIGH'
+        type: choice
+        options:
+          - 'CRITICAL'
+          - 'CRITICAL HIGH'
+          - 'CRITICAL HIGH MEDIUM'
+          - 'CRITICAL HIGH MEDIUM LOW'
+
+      include_dev:
+        description: 'Include development dependencies'
+        required: false
+        default: false
+        type: boolean
+
+      days_back:
+        description: 'Only check CVEs from last N days (optional)'
+        required: false
+        type: number
+
+      output_format:
+        description: 'Report format'
+        required: false
+        default: 'markdown'
+        type: choice
+        options:
+          - 'text'
+          - 'markdown'
+          - 'json'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Security Audit
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          SEVERITY="${{ github.event.inputs.severity }}"
+          FORMAT="${{ github.event.inputs.output_format }}"
+          INCLUDE_DEV="${{ github.event.inputs.include_dev }}"
+          DAYS_BACK="${{ github.event.inputs.days_back }}"
+
+          EXTRA_ARGS=""
+          if [ "$INCLUDE_DEV" = "true" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --include-dev"
+          fi
+          if [ -n "$DAYS_BACK" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --days $DAYS_BACK"
+          fi
+
+          # Audit package.json
+          if [ -f package.json ]; then
+            echo "Auditing package.json..."
+            python -m security_auditor.cli audit package.json \
+              --severity $SEVERITY \
+              --format $FORMAT \
+              $EXTRA_ARGS \
+              --output security-report-npm.$FORMAT
+          fi
+
+          # Audit requirements.txt
+          if [ -f requirements.txt ]; then
+            echo "Auditing requirements.txt..."
+            python -m security_auditor.cli audit requirements.txt \
+              --severity $SEVERITY \
+              --format $FORMAT \
+              $EXTRA_ARGS \
+              --output security-report-python.$FORMAT
+          fi
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-audit-reports
+          path: |
+            security-report-*.*
+          retention-days: 30
+
+      - name: Display Summary
+        run: |
+          echo "## Security Audit Completed"
+          echo ""
+          echo "**Severity Filter:** ${{ github.event.inputs.severity }}"
+          echo "**Include Dev Dependencies:** ${{ github.event.inputs.include_dev }}"
+          echo "**Output Format:** ${{ github.event.inputs.output_format }}"
+          if [ -n "${{ github.event.inputs.days_back }}" ]; then
+            echo "**CVEs from last:** ${{ github.event.inputs.days_back }} days"
+          fi
+          echo ""
+          echo "Reports have been uploaded as artifacts."
+          echo "Download them from the Actions tab."

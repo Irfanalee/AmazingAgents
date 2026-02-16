@@ -1,0 +1,53 @@
+================================================================================
+SECURITY AUDIT EXECUTIVE SUMMARY
+================================================================================
+
+Analysis Date: 2025-12-11 20:48:04
+Project: example-app v1.0.0
+
+OVERVIEW
+--------------------------------------------------------------------------------
+Packages Analyzed: 6
+Packages with Vulnerabilities: 3
+Total Vulnerabilities Found: 2
+
+SEVERITY BREAKDOWN
+--------------------------------------------------------------------------------
+  CRITICAL: 0
+  HIGH:     2
+  MEDIUM:   0
+  LOW:      0
+
+RISK ASSESSMENT
+--------------------------------------------------------------------------------
+⚠ Limited critical/high severity vulnerabilities detected.
+  Risk Level: MEDIUM
+  Immediate Action Required: 2 vulnerabilities
+
+ACTIONABLE VULNERABILITIES (CRITICAL & HIGH)
+--------------------------------------------------------------------------------
+
+Package: lodash
+  Vulnerabilities: 1
+
+  • CVE-2020-8203 [HIGH]
+    CVSS Score: 7.4
+    Published: 2020-07-15
+    Prototype pollution attack when using _.zipObjectDeep in lodash before 4.17.20.
+
+Package: moment
+  Vulnerabilities: 1
+
+  • CVE-2022-24785 [HIGH]
+    CVSS Score: 7.5
+    Published: 2022-04-04
+    Moment.js is a JavaScript date library for parsing, validating, manipulating, and formatting dates. A path traversal vulnerability impacts npm (server) users of Moment.js between versions 1.0.1 and 2....
+
+RECOMMENDATIONS
+--------------------------------------------------------------------------------
+1. IMMEDIATE: Review and patch all CRITICAL and HIGH severity vulnerabilities
+2. Update affected packages to latest secure versions
+3. Implement automated dependency scanning in CI/CD pipeline
+4. Schedule regular security audits (weekly/monthly)
+
+================================================================================

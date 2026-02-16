@@ -1,0 +1,98 @@
+name: Security Audit on Pull Request
+
+on:
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'package.json'
+      - 'requirements.txt'
+      - 'package-lock.json'
+      - 'yarn.lock'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Security Audit
+        id: audit
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          EXIT_CODE=0
+
+          # Audit package.json if it exists
+          if [ -f package.json ]; then
+            echo "Auditing package.json..."
+            python -m security_auditor.cli audit package.json \
+              --severity CRITICAL HIGH \
+              --format markdown \
+              --output security-report-npm.md || EXIT_CODE=$?
+          fi
+
+          # Audit requirements.txt if it exists
+          if [ -f requirements.txt ]; then
+            echo "Auditing requirements.txt..."
+            python -m security_auditor.cli audit requirements.txt \
+              --severity CRITICAL HIGH \
+              --format markdown \
+              --output security-report-python.md || EXIT_CODE=$?
+          fi
+
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          exit 0  # Don't fail the workflow, just report
+
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔒 Security Audit Results\n\n';
+
+            const exitCode = ${{ steps.audit.outputs.exit_code }};
+
+            if (exitCode === 0) {
+              comment += '✅ **No critical or high severity vulnerabilities detected!**\n\n';
+            } else if (exitCode === 1) {
+              comment += '⚠️ **HIGH severity vulnerabilities found**\n\n';
+            } else if (exitCode === 2) {
+              comment += '🚨 **CRITICAL severity vulnerabilities found**\n\n';
+            }
+
+            if (fs.existsSync('security-report-npm.md')) {
+              comment += '### Node.js Dependencies\n\n';
+              comment += fs.readFileSync('security-report-npm.md', 'utf8');
+              comment += '\n\n';
+            }
+
+            if (fs.existsSync('security-report-python.md')) {
+              comment += '### Python Dependencies\n\n';
+              comment += fs.readFileSync('security-report-python.md', 'utf8');
+            }
+
+            comment += '\n---\n*Automated security audit powered by Security Auditor*';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Fail if critical vulnerabilities found
+        if: steps.audit.outputs.exit_code == '2'
+        run: |
+          echo "❌ Critical vulnerabilities detected. Please review and fix before merging."
+          exit 1
