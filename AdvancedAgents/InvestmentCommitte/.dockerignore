@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env.local
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+conftest.py
+pyproject.toml
+
+# Documentation (not needed in container)
+*.md
+LICENSE
+
+# Shell scripts
+*.sh
+
+# Local environment (will use env_file in compose)
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
