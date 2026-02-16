@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Installation Guide - Agentic Video Editor</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #2563eb;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #1e40af;
+            margin-top: 30px;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        pre {
+            background: #1e293b;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        .step {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin: 20px 0;
+        }
+
+        a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Installation Guide for Agentic Video Editor</h1>
+    <p>This guide will help you install the Agentic Video Editor on another computer.</p>
+
+    <div class="step">
+        <h2>Prerequisites</h2>
+        <p>Before you begin, ensure the target computer has <strong>Docker Desktop</strong> installed.</p>
+        <p><a href="https://www.docker.com/products/docker-desktop/" target="_blank">Download Docker Desktop Here</a>
+        </p>
+    </div>
+
+    <div class="step">
+        <h2>Step 1: Get an API Key</h2>
+        <p>The app needs a Google Gemini API key to work.</p>
+        <ol>
+            <li>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+            <li>Click <strong>Create API Key</strong>.</li>
+            <li>Copy the key string (it starts with <code>AIza...</code>).</li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h2>Step 2: Installation</h2>
+        <h3>For Mac (Easy Method)</h3>
+        <ol>
+            <li>Unzip the folder.</li>
+            <li>Open the <strong>Terminal</strong> app.</li>
+            <li>Type <code>cd</code> and drag the unzipped folder into the terminal window. Press Enter.</li>
+            <li>Run this command:
+                <pre><code>chmod +x setup.sh && ./setup.sh</code></pre>
+            </li>
+            <li>Paste your API key when asked.</li>
+        </ol>
+
+        <h3>For Windows (Recommended)</h3>
+        <ol>
+            <li>Unzip the folder.</li>
+            <li><strong>Double-click <code>setup.bat</code></strong>.</li>
+            <li>Follow the on-screen prompts.</li>
+            <li><em>Note: If you see a <code>node_modules</code> folder from a previous attempt, please delete it
+                    first!</em></li>
+        </ol>
+
+        <h3>For Linux / Manual Setup</h3>
+        <ol>
+            <li>Create a file named <code>.env</code> in the folder.</li>
+            <li>Open it with a text editor and paste: <code>GEMINI_API_KEY=your_key_here</code></li>
+            <li>Open Terminal in that folder.</li>
+            <li>Run:
+                <pre><code>docker-compose up --build</code></pre>
+            </li>
+        </ol>
+    </div>
+
+    <div class="step">
+        <h2>Step 3: Use the App</h2>
+        <p>Once the logs say the server is running:</p>
+        <ol>
+            <li>Open your browser (Chrome/Safari).</li>
+            <li>Go to: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+        </ol>
+    </div>
+</body>
+
+</html>
