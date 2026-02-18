@@ -1,8 +1,7 @@
 import streamlit as st
-from openai import OpenAI
-import replicate
 from dotenv import load_dotenv
 import os
+import time
 import requests
 
 load_dotenv()
@@ -10,165 +9,138 @@ load_dotenv()
 st.set_page_config(page_title="Song Maker", page_icon="🎸")
 
 st.title("🎸 Song Maker")
-st.markdown("Generate lyrics with AI and transform them into a sung song using Bark.")
+st.markdown(
+    "Paste your lyrics and produce a real song using Suno. "
+    "Need lyrics first? Use the [LyricsGenerator](../LyricsGenerator) agent."
+)
 
-# --- Sidebar: API Keys ---
+SUNO_API_BASE = "https://api.sunoapi.org/api/v1"
+POLL_INTERVAL = 5   # seconds between status checks
+MAX_WAIT = 300      # give up after 5 minutes
+
+GENRES = ["Pop", "Rock", "Hip-Hop", "R&B", "Country", "Jazz", "Blues", "Reggae", "Folk", "Electronic"]
+MOODS  = ["Happy", "Sad", "Energetic", "Romantic", "Melancholic", "Uplifting", "Dark", "Chill"]
+
+# --- Sidebar: API Key ---
 with st.sidebar:
-    st.header("API Keys")
-    openai_api_key = os.getenv("OPENAI_API_KEY") or st.text_input(
-        "OpenAI API Key", type="password"
-    )
-    replicate_api_key = os.getenv("REPLICATE_API_TOKEN") or st.text_input(
-        "Replicate API Token", type="password"
+    st.header("API Key")
+    suno_api_key = os.getenv("SUNO_API_KEY") or st.text_input(
+        "Suno API Key", type="password"
     )
     st.markdown("---")
-    st.caption("Get a Replicate token at [replicate.com](https://replicate.com)")
+    st.caption("Get a Suno API key at [sunoapi.org](https://sunoapi.org)")
 
-if not openai_api_key:
-    st.info("Please provide your OpenAI API key in the sidebar or a `.env` file.")
+if not suno_api_key:
+    st.info("Please provide your Suno API key in the sidebar or a `.env` file.")
     st.stop()
 
-if not replicate_api_key:
-    st.info("Please provide your Replicate API token in the sidebar or a `.env` file.")
-    st.stop()
 
-openai_client = OpenAI(api_key=openai_api_key)
-os.environ["REPLICATE_API_TOKEN"] = replicate_api_key
+# --- Core functions ---
 
-VOICE_PRESETS = {
-    "Speaker 1": "v2/en_speaker_0",
-    "Speaker 2": "v2/en_speaker_1",
-    "Speaker 3": "v2/en_speaker_2",
-    "Speaker 4": "v2/en_speaker_3",
-    "Speaker 5": "v2/en_speaker_4",
-    "Speaker 6": "v2/en_speaker_5",
-    "Speaker 7": "v2/en_speaker_6",
-    "Speaker 8": "v2/en_speaker_7",
-    "Announcer": "announcer",
-}
-
-
-def generate_lyrics(topic: str, genre: str, mood: str) -> str:
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a talented songwriter. Write original, creative song lyrics "
-                    "based on the user's request. Include verses, a chorus, and optionally "
-                    "a bridge. Format the output clearly with section labels like [Verse 1], "
-                    "[Chorus], [Bridge], etc."
-                ),
-            },
-            {
-                "role": "user",
-                "content": f"Write a {genre} song with a {mood.lower()} mood about: {topic}",
-            },
-        ],
-        temperature=0.9,
-        max_tokens=1024,
+def start_song_generation(lyrics: str, style: str, title: str) -> str:
+    """Submit a song generation job and return the task ID."""
+    headers = {
+        "Authorization": f"Bearer {suno_api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "customMode": True,
+        "instrumental": False,
+        "model": "V4_5",
+        "prompt": lyrics,
+        "style": style,
+        "title": title,
+        "callBackUrl": "https://example.com/callback",
+    }
+    resp = requests.post(
+        f"{SUNO_API_BASE}/generate",
+        json=payload,
+        headers=headers,
+        timeout=30,
     )
-    return response.choices[0].message.content
+    resp.raise_for_status()
+    body = resp.json()
+
+    data = body.get("data")
+    if not data or "taskId" not in data:
+        raise RuntimeError(f"Unexpected response from Suno API: {body}")
+
+    return data["taskId"]
 
 
-def generate_song_audio(
-    lyrics: str, voice_preset: str, text_temp: float, waveform_temp: float
-) -> bytes:
-    output = replicate.run(
-        "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787",
-        input={
-            "prompt": lyrics,
-            "history_prompt": voice_preset,
-            "text_temp": text_temp,
-            "waveform_temp": waveform_temp,
-        },
-    )
-    # output is a URL string; fetch the raw audio bytes
-    audio_url = output["audio_out"] if isinstance(output, dict) else output
-    return requests.get(audio_url).content
+def poll_for_songs(task_id: str) -> list[dict]:
+    """Poll until the task is done. Returns list of song dicts with audio_url."""
+    headers = {"Authorization": f"Bearer {suno_api_key}"}
+    elapsed = 0
 
+    status_placeholder = st.empty()
 
-# --- Tabs ---
-tab_generate, tab_existing = st.tabs(["Generate Lyrics & Song", "Use My Own Lyrics"])
+    while elapsed < MAX_WAIT:
+        time.sleep(POLL_INTERVAL)
+        elapsed += POLL_INTERVAL
 
-# ---- Tab 1: Generate lyrics then song ----
-with tab_generate:
-    topic = st.text_input(
-        "What should the song be about?",
-        placeholder="e.g. a rainy day in Tokyo",
-    )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        genre = st.selectbox(
-            "Genre / Style",
-            ["Pop", "Rock", "Hip-Hop", "R&B", "Country", "Jazz", "Blues", "Reggae", "Folk", "Electronic"],
+        resp = requests.get(
+            f"{SUNO_API_BASE}/generate/record-info",
+            params={"taskId": task_id},
+            headers=headers,
+            timeout=30,
         )
-    with col2:
-        mood = st.selectbox(
-            "Mood",
-            ["Happy", "Sad", "Energetic", "Romantic", "Melancholic", "Uplifting", "Dark", "Chill"],
+        resp.raise_for_status()
+        body = resp.json()
+
+        # Show raw response so we can debug the real structure
+        status_placeholder.json(body)
+
+        response_data = body.get("data", {}).get("response", {})
+        songs = response_data.get("data", []) if response_data else []
+
+        ready = [s for s in songs if s.get("audio_url")]
+        if ready:
+            status_placeholder.empty()
+            return ready
+
+    raise TimeoutError("Song generation timed out after 5 minutes.")
+
+
+def display_songs(songs: list[dict]):
+    for i, song in enumerate(songs, 1):
+        st.markdown(f"**Version {i}**")
+        audio_url = song["audio_url"]
+        audio_bytes = requests.get(audio_url, timeout=60).content
+        st.audio(audio_bytes, format="audio/mpeg")
+        st.download_button(
+            label=f"Download Version {i}",
+            data=audio_bytes,
+            file_name=f"song_v{i}.mp3",
+            mime="audio/mpeg",
+            key=f"dl_{i}_{audio_url[-8:]}",
         )
 
-    voice_label = st.selectbox("Voice Style", list(VOICE_PRESETS.keys()))
 
-    col3, col4 = st.columns(2)
-    with col3:
-        text_temp = st.slider("Lyric Creativity", 0.1, 1.0, 0.7, 0.05)
-    with col4:
-        waveform_temp = st.slider("Audio Creativity", 0.1, 1.0, 0.7, 0.05)
+# --- Main UI ---
+title = st.text_input("Song title", placeholder="e.g. Tokyo Rain")
+lyrics_input = st.text_area("Paste your lyrics here", height=300)
 
-    if st.button("Generate Lyrics & Song", type="primary"):
-        if not topic.strip():
-            st.warning("Please enter a topic first.")
-        else:
-            with st.spinner("Writing your lyrics..."):
-                lyrics = generate_lyrics(topic, genre, mood)
+col1, col2 = st.columns(2)
+with col1:
+    genre = st.selectbox("Genre / Style", GENRES)
+with col2:
+    mood = st.selectbox("Mood", MOODS)
 
-            st.subheader("Lyrics")
-            st.text(lyrics)
-
-            with st.spinner("Generating song audio — this may take a minute..."):
-                audio_bytes = generate_song_audio(
-                    lyrics, VOICE_PRESETS[voice_label], text_temp, waveform_temp
-                )
-
-            st.subheader("Your Song")
-            st.audio(audio_bytes, format="audio/wav")
-            st.download_button(
-                label="Download Song",
-                data=audio_bytes,
-                file_name="song.wav",
-                mime="audio/wav",
+if st.button("Make Song", type="primary"):
+    if not title.strip():
+        st.warning("Please enter a song title.")
+    elif not lyrics_input.strip():
+        st.warning("Please paste your lyrics.")
+    else:
+        with st.spinner("Submitting to Suno..."):
+            task_id = start_song_generation(
+                lyrics=lyrics_input,
+                style=f"{genre} {mood}",
+                title=title,
             )
 
-# ---- Tab 2: Paste existing lyrics ----
-with tab_existing:
-    lyrics_input = st.text_area("Paste your lyrics here", height=300)
+        songs = poll_for_songs(task_id)
 
-    voice_label_2 = st.selectbox("Voice Style ", list(VOICE_PRESETS.keys()))
-
-    col5, col6 = st.columns(2)
-    with col5:
-        text_temp_2 = st.slider("Lyric Creativity ", 0.1, 1.0, 0.7, 0.05)
-    with col6:
-        waveform_temp_2 = st.slider("Audio Creativity ", 0.1, 1.0, 0.7, 0.05)
-
-    if st.button("Make Song", type="primary"):
-        if not lyrics_input.strip():
-            st.warning("Please paste some lyrics first.")
-        else:
-            with st.spinner("Generating song audio — this may take a minute..."):
-                audio_bytes_2 = generate_song_audio(
-                    lyrics_input, VOICE_PRESETS[voice_label_2], text_temp_2, waveform_temp_2
-                )
-
-            st.subheader("Your Song")
-            st.audio(audio_bytes_2, format="audio/wav")
-            st.download_button(
-                label="Download Song",
-                data=audio_bytes_2,
-                file_name="song.wav",
-                mime="audio/wav",
-            )
+        st.subheader("Your Song")
+        display_songs(songs)
