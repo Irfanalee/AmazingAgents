@@ -11,7 +11,7 @@ st.set_page_config(page_title="Song Maker", page_icon="🎸")
 st.title("🎸 Song Maker")
 st.markdown(
     "Paste your lyrics and produce a real song using Suno. "
-    "Need lyrics first? Use the [LyricsGenerator](../LyricsGenerator) agent."
+    "Need lyrics first? Use the [LyricsGenerator] (https://github.com/Irfanalee/AmazingAgents/tree/main/BasicAgents/LyricsGenerator) agent."
 )
 
 SUNO_API_BASE = "https://api.sunoapi.org/api/v1"
@@ -88,24 +88,33 @@ def poll_for_songs(task_id: str) -> list[dict]:
         resp.raise_for_status()
         body = resp.json()
 
-        # Show raw response so we can debug the real structure
-        status_placeholder.json(body)
+        task_data = body.get("data", {})
+        status = task_data.get("status", "PENDING")
+        status_placeholder.info(f"Status: {status} ({elapsed}s elapsed, usually ~40s)")
 
-        response_data = body.get("data", {}).get("response", {})
-        songs = response_data.get("data", []) if response_data else []
+        if status in ("FAILED", "ERROR"):
+            raise RuntimeError(f"Song generation failed: {task_data.get('errorMessage')}")
 
-        ready = [s for s in songs if s.get("audio_url")]
-        if ready:
+        if status == "SUCCESS":
             status_placeholder.empty()
-            return ready
+            response = task_data.get("response", {})
+            songs = response.get("sunoData", [])
+
+            ready = [s for s in songs if s.get("audioUrl")]
+            if ready:
+                return ready
+
+            raise RuntimeError(
+                f"Song marked SUCCESS but no audioUrl found. Response: {response}"
+            )
 
     raise TimeoutError("Song generation timed out after 5 minutes.")
 
 
 def display_songs(songs: list[dict]):
     for i, song in enumerate(songs, 1):
-        st.markdown(f"**Version {i}**")
-        audio_url = song["audio_url"]
+        st.markdown(f"**Version {i}** — *{song.get('title', '')}*")
+        audio_url = song["audioUrl"]
         audio_bytes = requests.get(audio_url, timeout=60).content
         st.audio(audio_bytes, format="audio/mpeg")
         st.download_button(
@@ -113,7 +122,7 @@ def display_songs(songs: list[dict]):
             data=audio_bytes,
             file_name=f"song_v{i}.mp3",
             mime="audio/mpeg",
-            key=f"dl_{i}_{audio_url[-8:]}",
+            key=f"dl_{i}_{song['id']}",
         )
 
 
