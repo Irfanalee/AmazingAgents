@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+gradio
+PyMuPDF
+pytesseract
+Pillow
+pydantic
+requests
+python-dotenv
