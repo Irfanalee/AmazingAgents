@@ -42,10 +42,14 @@ class AIEngine:
             prompt = """
             Analyze this video and identify 3-5 most engaging or important highlights that would be suitable for a social media teaser.
             For each highlight, provide the start and end timestamps in "MM:SS" format, and a brief description.
-            
+
+            Detect the language spoken in the video and write all descriptions in that same language.
+            For example, if the video is in Persian/Dari/Farsi, write the descriptions in Persian/Dari script.
+            If the video is in English, write in English. Match whatever language is spoken.
+
             Return the response ONLY as a valid JSON list of objects with the following structure:
             [
-                {"start": "MM:SS", "end": "MM:SS", "description": "Brief description"}
+                {"start": "MM:SS", "end": "MM:SS", "description": "Brief description in the video's language"}
             ]
             Do not include any markdown formatting or other text.
             """
