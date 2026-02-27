@@ -30,7 +30,7 @@ class AIEngine:
         print(f"\nFile is active: {video_file.name}")
         return video_file
 
-    async def analyze_video(self, video_path: str, model: str = "gemini-2.5-flash"):
+    async def analyze_video(self, video_path: str, model: str = "gemini-2.5-flash-lite"):
         """
         Uploads video to Gemini and analyzes it to find highlights.
         Returns a list of timestamps (start, end) and descriptions.

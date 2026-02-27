@@ -102,32 +102,17 @@ async def update_timeline(job_id: str, event: str, status: str = "completed"):
         "timeline": jobs[job_id]["timeline"]
     })
 
-GEMINI_MODELS = [
-    {
-        "id": "gemini-2.5-flash",
-        "name": "Gemini 2.5 Flash",
-        "description": "Latest, fastest, best value",
-        "price_per_million_tokens": 0.15,
-        "tokens_per_second": 263,
-        "default": True,
-    },
-    {
-        "id": "gemini-2.0-flash-001",
-        "name": "Gemini 2.0 Flash",
-        "description": "Previous generation, slightly cheaper",
-        "price_per_million_tokens": 0.10,
-        "tokens_per_second": 263,
-        "default": False,
-    },
-    {
-        "id": "gemini-2.5-pro",
-        "name": "Gemini 2.5 Pro",
-        "description": "Most capable, highest cost",
-        "price_per_million_tokens": 1.25,
-        "tokens_per_second": 263,
-        "default": False,
-    },
-]
+class ProcessRequest(BaseModel):
+    model: str = "gemini-2.5-flash-lite"
+
+# Pricing lookup — only update when Google changes prices, not when models change
+GEMINI_PRICING = {
+    # 2.0 models excluded — not available to new API users as of 2025
+    "gemini-2.5-flash-lite":     {"price_per_million_tokens": 0.10},
+    "gemini-2.5-flash":          {"price_per_million_tokens": 0.15},
+    "gemini-2.5-pro":            {"price_per_million_tokens": 1.25},
+}
+TOKENS_PER_SECOND_VIDEO = 263
 
 @app.get("/")
 async def root():
@@ -135,7 +120,49 @@ async def root():
 
 @app.get("/models")
 async def list_models():
-    return GEMINI_MODELS
+    """Fetch live model list from Gemini API, merge with local pricing."""
+    loop = asyncio.get_event_loop()
+    try:
+        raw_models = await loop.run_in_executor(None, lambda: list(ai_engine.client.models.list()))
+    except Exception as e:
+        print(f"Failed to fetch models from Gemini: {e}")
+        raw_models = []
+
+    # Keep only video-capable generative models
+    # Exclude: embeddings, aqa, tts, audio, image-gen, robotics, computer-use, legacy 1.0
+    EXCLUDE = ("embedding", "aqa", "gemini-1.0", "tts", "audio", "image", "robotics", "computer-use")
+    # Only stable/preview flash and pro models (not aliases like gemini-flash-latest)
+    INCLUDE_PATTERNS = ("gemini-2.", "gemini-3.")
+    video_capable = [
+        m for m in raw_models
+        if any(p in m.name.lower() for p in INCLUDE_PATTERNS)
+        and not any(x in m.name.lower() for x in EXCLUDE)
+    ]
+
+    result = []
+    for m in video_capable:
+        model_id = m.name.replace("models/", "")
+        pricing = GEMINI_PRICING.get(model_id, {})
+        result.append({
+            "id": model_id,
+            "name": getattr(m, "display_name", None) or model_id,
+            "description": getattr(m, "description", None) or "",
+            "price_per_million_tokens": pricing.get("price_per_million_tokens"),
+            "tokens_per_second": TOKENS_PER_SECOND_VIDEO,
+        })
+
+    # Sort: known pricing cheapest first, unknown pricing last
+    result.sort(key=lambda x: (x["price_per_million_tokens"] is None, x["price_per_million_tokens"] or 0))
+
+    # Mark cheapest known-price model as default
+    for m in result:
+        m["default"] = False
+    for m in result:
+        if m["price_per_million_tokens"] is not None:
+            m["default"] = True
+            break
+
+    return result
 
 @app.get("/videos")
 async def list_videos():
@@ -325,8 +352,18 @@ async def run_processing_agent(job_id: str, file_path: str):
         success = video_processor.process_highlights(file_path, highlights, output_path)
         
         if success:
-            jobs[job_id]["status"] = "completed"
             jobs[job_id]["output_url"] = f"/static/{output_filename}"
+
+            # Cut individual shorts for each highlight
+            await send_log(job_id, "Agent Trond: Generating individual shorts...")
+            loop = asyncio.get_event_loop()
+            short_paths = await loop.run_in_executor(
+                None, video_processor.cut_shorts, file_path, highlights, job_id
+            )
+            jobs[job_id]["shorts"] = [f"/static/{os.path.basename(p)}" for p in short_paths]
+            await send_log(job_id, f"✓ Generated {len(short_paths)} individual shorts", "success")
+
+            jobs[job_id]["status"] = "completed"
             await update_timeline(job_id, "Processing Complete", "completed")
             await send_log(job_id, f"✓ Video processing complete! Output: {output_filename}", "success")
             return True
@@ -376,9 +413,6 @@ async def start_processing(file_id: str, background_tasks: BackgroundTasks, requ
     background_tasks.add_task(process_video_task, job_id, file_path, request.model)
 
     return jobs[job_id]
-
-class ProcessRequest(BaseModel):
-    model: str = "gemini-2.5-flash"
 
 class Clip(BaseModel):
     start: float

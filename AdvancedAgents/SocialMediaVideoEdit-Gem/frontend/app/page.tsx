@@ -22,6 +22,7 @@ interface JobStatus {
   error?: string;
   highlights?: any[];
   timeline?: any[];
+  shorts?: string[];
 }
 
 export default function Home() {
@@ -256,12 +257,31 @@ export default function Home() {
 
                       <div className="flex gap-2">
                         <Button className="flex-1" onClick={() => window.open(`${API_URL}${status.output_url}`, '_blank')}>
-                          Download Video
+                          Download Highlights Reel
                         </Button>
                         <Button onClick={handleReset} variant="outline">
                           New Upload
                         </Button>
                       </div>
+
+                      {status.shorts && status.shorts.length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-zinc-800">
+                          <p className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+                            <Scissors className="w-4 h-4 text-purple-400" />
+                            Individual Shorts
+                          </p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {status.shorts.map((url, i) => (
+                              <div key={i} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+                                <span className="text-sm text-zinc-300">Short {i + 1}</span>
+                                <Button size="sm" variant="outline" onClick={() => window.open(`${API_URL}${url}`, '_blank')}>
+                                  Download
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -45,7 +45,7 @@ export default function ModelSelector({ videoDuration, onSelect, selectedModel }
   }, []);
 
   const estimateCost = (model: GeminiModel): string => {
-    if (!videoDuration) return "—";
+    if (!videoDuration || model.price_per_million_tokens === null) return "—";
     const tokens = videoDuration * model.tokens_per_second;
     const cost = (tokens / 1_000_000) * model.price_per_million_tokens;
     if (cost < 0.001) return "< $0.001";
@@ -97,7 +97,9 @@ export default function ModelSelector({ videoDuration, onSelect, selectedModel }
               </div>
               <div className="text-right ml-4 flex-shrink-0">
                 <div className="text-sm font-semibold text-zinc-200">{estimateCost(model)}</div>
-                <div className="text-xs text-zinc-600">${model.price_per_million_tokens}/1M tokens</div>
+                <div className="text-xs text-zinc-600">
+                  {model.price_per_million_tokens !== null ? `$${model.price_per_million_tokens}/1M tokens` : "Pricing unknown"}
+                </div>
               </div>
             </button>
           );
