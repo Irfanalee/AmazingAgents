@@ -29,7 +29,7 @@ export default function ProcessingLogs({ jobId }: ProcessingLogsProps) {
         const connect = () => {
             if (!isMounted) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = apiUrl.startsWith('http')
                 ? apiUrl.replace(/^http/, 'ws') + `/ws/${jobId}`

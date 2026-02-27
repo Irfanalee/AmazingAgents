@@ -1,5 +1,6 @@
 import ffmpeg
 import os
+from fractions import Fraction
 from datetime import datetime
 
 class MetadataExtractor:
@@ -35,7 +36,7 @@ class MetadataExtractor:
                     'width': video_stream.get('width'),
                     'height': video_stream.get('height'),
                     'codec': video_stream.get('codec_name'),
-                    'fps': eval(video_stream.get('r_frame_rate', '0/1')),
+                    'fps': round(float(Fraction(video_stream.get('r_frame_rate', '0/1'))), 2),
                     'bitrate': int(video_stream.get('bit_rate', 0)),
                 })
             

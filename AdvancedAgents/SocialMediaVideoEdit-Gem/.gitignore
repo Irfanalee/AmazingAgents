@@ -65,3 +65,5 @@ Thumbs.db
 
 # Docker
 *.log
+
+check_api_key.py

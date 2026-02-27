@@ -361,7 +361,7 @@ async def start_manual_processing(file_id: str, request: ManualProcessRequest, b
     job_id = str(uuid.uuid4())
     
     # Convert Pydantic models to dicts
-    highlights = [clip.dict() for clip in request.clips]
+    highlights = [clip.model_dump() for clip in request.clips]
     
     jobs[job_id] = {
         "id": job_id,

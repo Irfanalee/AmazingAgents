@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Play, Pause, Scissors, Trash2, Clock, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
+
 interface Clip {
     start: number;
     end: number;
@@ -90,7 +92,7 @@ export default function ManualClipper({ fileId, videoUrl, onProcessingStart }: M
         if (clips.length === 0) return;
 
         try {
-            const response = await axios.post(`http://localhost:8000/process/manual/${fileId}`, {
+            const response = await axios.post(`${API_URL}/process/manual/${fileId}`, {
                 clips: clips
             });
             onProcessingStart(response.data.id);

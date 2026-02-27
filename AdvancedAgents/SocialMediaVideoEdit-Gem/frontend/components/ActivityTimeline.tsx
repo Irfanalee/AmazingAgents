@@ -3,6 +3,9 @@
 import React, { useEffect } from 'react';
 import { CheckCircle, Circle, Loader2, XCircle } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
+const WS_URL = API_URL.replace(/^http/, 'ws');
+
 interface TimelineEvent {
     event: string;
     status: 'completed' | 'in_progress' | 'failed';
@@ -21,7 +24,7 @@ export default function ActivityTimeline({ jobId, timeline }: ActivityTimelinePr
     useEffect(() => {
         if (!jobId) return;
 
-        const ws = new WebSocket(`ws://localhost:8000/ws/${jobId}`);
+        const ws = new WebSocket(`${WS_URL}/ws/${jobId}`);
         wsRef.current = ws;
 
         ws.onmessage = (event) => {

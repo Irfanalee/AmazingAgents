@@ -11,6 +11,8 @@ import ActivityTimeline from '@/components/ActivityTimeline';
 import { Loader2, CheckCircle, Play, AlertTriangle, Upload, Library, Bot, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
+
 interface JobStatus {
   id: string;
   file_id: string;
@@ -40,7 +42,7 @@ export default function Home() {
   const handleStartProcessing = async () => {
     if (!fileId) return;
     try {
-      const response = await axios.post(`http://localhost:8000/process/${fileId}`);
+      const response = await axios.post(`${API_URL}/process/${fileId}`);
       setJobId(response.data.id);
       setPolling(true);
     } catch (error) {
@@ -59,7 +61,7 @@ export default function Home() {
     setProcessingMode(null);
     // Fetch metadata for the selected video
     try {
-      const response = await axios.get(`http://localhost:8000/videos/${selectedFileId}/metadata`);
+      const response = await axios.get(`${API_URL}/videos/${selectedFileId}/metadata`);
       setUploadedMetadata(response.data);
     } catch (error) {
       console.error("Failed to fetch metadata:", error);
@@ -81,7 +83,7 @@ export default function Home() {
 
     const interval = setInterval(async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/jobs/${jobId}`);
+        const response = await axios.get(`${API_URL}/jobs/${jobId}`);
         setStatus(response.data);
 
         if (['completed', 'failed'].includes(response.data.status)) {
@@ -219,7 +221,7 @@ export default function Home() {
                 </div>
                 <ManualClipper
                   fileId={fileId}
-                  videoUrl={`http://localhost:8000/${uploadedMetadata.path}`}
+                  videoUrl={`${API_URL}/${uploadedMetadata.path}`}
                   onProcessingStart={handleManualProcessingStart}
                 />
               </div>
@@ -239,14 +241,14 @@ export default function Home() {
 
                       <div className="aspect-video bg-black rounded-lg overflow-hidden border border-zinc-800">
                         <video
-                          src={`http://localhost:8000${status.output_url}`}
+                          src={`${API_URL}${status.output_url}`}
                           controls
                           className="w-full h-full"
                         />
                       </div>
 
                       <div className="flex gap-2">
-                        <Button className="flex-1" onClick={() => window.open(`http://localhost:8000${status.output_url}`, '_blank')}>
+                        <Button className="flex-1" onClick={() => window.open(`${API_URL}${status.output_url}`, '_blank')}>
                           Download Video
                         </Button>
                         <Button onClick={handleReset} variant="outline">

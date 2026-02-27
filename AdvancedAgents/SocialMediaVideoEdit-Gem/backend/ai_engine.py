@@ -1,33 +1,32 @@
 import os
 import time
 import json
-import google.generativeai as genai
+import asyncio
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
 class AIEngine:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-flash-latest')
+        self.client = genai.Client(api_key=GEMINI_API_KEY)
 
     def upload_file(self, path: str):
         print(f"Uploading file: {path}")
-        video_file = genai.upload_file(path=path)
+        video_file = self.client.files.upload(file=path)
         print(f"Completed upload: {video_file.uri}")
-        
+
         # Wait for file to be active
         while video_file.state.name == "PROCESSING":
             print("Processing video...", end="\r")
             time.sleep(5)
-            video_file = genai.get_file(video_file.name)
-            
+            video_file = self.client.files.get(name=video_file.name)
+
         if video_file.state.name == "FAILED":
             raise ValueError("Video processing failed")
-            
+
         print(f"\nFile is active: {video_file.name}")
         return video_file
 
@@ -37,8 +36,10 @@ class AIEngine:
         Returns a list of timestamps (start, end) and descriptions.
         """
         try:
-            video_file = self.upload_file(video_path)
-            
+            # Run blocking upload in thread pool to avoid freezing the event loop
+            loop = asyncio.get_event_loop()
+            video_file = await loop.run_in_executor(None, self.upload_file, video_path)
+
             prompt = """
             Analyze this video and identify 3-5 most engaging or important highlights that would be suitable for a social media teaser.
             For each highlight, provide the start and end timestamps in "MM:SS" format, and a brief description.
@@ -53,8 +54,11 @@ class AIEngine:
             ]
             Do not include any markdown formatting or other text.
             """
-            
-            response = self.model.generate_content([video_file, prompt])
+
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=[video_file, prompt]
+            )
             print("Gemini Response:", response.text)
             
             return self._parse_timestamps(response.text)

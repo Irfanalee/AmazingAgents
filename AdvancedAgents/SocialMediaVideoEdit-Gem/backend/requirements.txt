@@ -2,6 +2,7 @@ fastapi
 uvicorn
 python-multipart
 ffmpeg-python
-google-generativeai
+static-ffmpeg
+google-genai
 python-dotenv
 websockets

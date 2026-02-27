@@ -5,6 +5,8 @@ import axios from 'axios';
 import { Trash2, Play, FileVideo, Calendar, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
+
 interface Video {
     file_id: string;
     filename: string;
@@ -32,8 +34,8 @@ export default function VideoLibrary({ onVideoSelect, refreshTrigger }: VideoLib
     const fetchVideos = async () => {
         try {
             const [uploadsRes, generatedRes] = await Promise.all([
-                axios.get('http://localhost:8000/videos'),
-                axios.get('http://localhost:8000/processed')
+                axios.get(`${API_URL}/videos`),
+                axios.get(`${API_URL}/processed`)
             ]);
             setVideos(uploadsRes.data.videos);
             setGeneratedVideos(generatedRes.data.videos);
@@ -50,7 +52,7 @@ export default function VideoLibrary({ onVideoSelect, refreshTrigger }: VideoLib
 
     const handleDelete = async (fileId: string) => {
         try {
-            await axios.delete(`http://localhost:8000/videos/${fileId}`);
+            await axios.delete(`${API_URL}/videos/${fileId}`);
             setVideos(videos.filter(v => v.file_id !== fileId));
             setDeleteConfirm(null);
         } catch (error) {
@@ -209,7 +211,7 @@ export default function VideoLibrary({ onVideoSelect, refreshTrigger }: VideoLib
 
                                 <div className="flex gap-2 mt-4">
                                     <a
-                                        href={`http://localhost:8000${video.path}`}
+                                        href={`${API_URL}${video.path}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex-1"
@@ -231,7 +233,7 @@ export default function VideoLibrary({ onVideoSelect, refreshTrigger }: VideoLib
                                                 className="flex-1 text-xs"
                                                 onClick={async () => {
                                                     try {
-                                                        await axios.delete(`http://localhost:8000/processed/${video.filename}`);
+                                                        await axios.delete(`${API_URL}/processed/${video.filename}`);
                                                         setGeneratedVideos(generatedVideos.filter(v => v.filename !== video.filename));
                                                         setDeleteConfirm(null);
                                                     } catch (error) {

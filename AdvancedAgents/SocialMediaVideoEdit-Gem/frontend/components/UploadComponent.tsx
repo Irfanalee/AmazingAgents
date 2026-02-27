@@ -5,6 +5,8 @@ import axios from 'axios';
 import { Upload, FileVideo, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8099';
+
 interface UploadComponentProps {
     onUploadComplete: (uploadData: any) => void;
 }
@@ -60,7 +62,7 @@ export default function UploadComponent({ onUploadComplete }: UploadComponentPro
         formData.append('file', file);
 
         try {
-            const response = await axios.post('http://localhost:8000/upload', formData, {
+            const response = await axios.post(`${API_URL}/upload`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
