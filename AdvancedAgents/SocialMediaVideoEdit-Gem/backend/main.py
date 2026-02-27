@@ -102,9 +102,40 @@ async def update_timeline(job_id: str, event: str, status: str = "completed"):
         "timeline": jobs[job_id]["timeline"]
     })
 
+GEMINI_MODELS = [
+    {
+        "id": "gemini-2.5-flash",
+        "name": "Gemini 2.5 Flash",
+        "description": "Latest, fastest, best value",
+        "price_per_million_tokens": 0.15,
+        "tokens_per_second": 263,
+        "default": True,
+    },
+    {
+        "id": "gemini-2.0-flash-001",
+        "name": "Gemini 2.0 Flash",
+        "description": "Previous generation, slightly cheaper",
+        "price_per_million_tokens": 0.10,
+        "tokens_per_second": 263,
+        "default": False,
+    },
+    {
+        "id": "gemini-2.5-pro",
+        "name": "Gemini 2.5 Pro",
+        "description": "Most capable, highest cost",
+        "price_per_million_tokens": 1.25,
+        "tokens_per_second": 263,
+        "default": False,
+    },
+]
+
 @app.get("/")
 async def root():
     return {"message": "Agentic Video Editor API is running"}
+
+@app.get("/models")
+async def list_models():
+    return GEMINI_MODELS
 
 @app.get("/videos")
 async def list_videos():
@@ -243,15 +274,16 @@ def upload_video(file: UploadFile = File(...)):
         "metadata": metadata
     }
 
-async def run_analysis_agent(job_id: str, file_path: str):
+async def run_analysis_agent(job_id: str, file_path: str, model: str = "gemini-2.5-flash"):
     """Agent Qazi: Analyzes video and finds highlights"""
     jobs[job_id]["status"] = "analyzing"
     await update_timeline(job_id, "Analysis Started", "in_progress")
     await send_log(job_id, f"Starting AI analysis of video: {file_path}")
-    
+    await send_log(job_id, f"Agent Qazi: Using model {model}")
+
     try:
         await send_log(job_id, "Agent Qazi: Uploading video to Gemini...")
-        highlights = await ai_engine.analyze_video(file_path)
+        highlights = await ai_engine.analyze_video(file_path, model)
         jobs[job_id]["highlights"] = highlights
         
         if not highlights:
@@ -312,35 +344,41 @@ async def run_processing_agent(job_id: str, file_path: str):
         await send_log(job_id, f"Processing Error: {str(e)}", "error")
         return False
 
-async def process_video_task(job_id: str, file_path: str):
+async def process_video_task(job_id: str, file_path: str, model: str = "gemini-2.5-flash"):
     """Orchestrator: Runs Qazi then Trond"""
-    if await run_analysis_agent(job_id, file_path):
+    if await run_analysis_agent(job_id, file_path, model):
         await run_processing_agent(job_id, file_path)
 
 @app.post("/process/{file_id}")
-async def start_processing(file_id: str, background_tasks: BackgroundTasks):
+async def start_processing(file_id: str, background_tasks: BackgroundTasks, request: ProcessRequest = None):
+    if request is None:
+        request = ProcessRequest()
     # Find file (in a real app, look up in DB)
     files = [f for f in os.listdir("uploads") if f.startswith(file_id)]
     if not files:
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     file_path = f"uploads/{files[0]}"
     job_id = str(uuid.uuid4())
-    
+
     jobs[job_id] = {
         "id": job_id,
         "file_id": file_id,
         "status": "queued",
+        "model": request.model,
         "timeline": [{
             "event": "Video Uploaded",
             "status": "completed",
             "timestamp": datetime.now().isoformat()
         }]
     }
-    
-    background_tasks.add_task(process_video_task, job_id, file_path)
-    
+
+    background_tasks.add_task(process_video_task, job_id, file_path, request.model)
+
     return jobs[job_id]
+
+class ProcessRequest(BaseModel):
+    model: str = "gemini-2.5-flash"
 
 class Clip(BaseModel):
     start: float

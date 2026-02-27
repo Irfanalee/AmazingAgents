@@ -8,6 +8,7 @@ import VideoMetadata from '@/components/VideoMetadata';
 import ProcessingLogs from '@/components/ProcessingLogs';
 import ManualClipper from '@/components/ManualClipper';
 import ActivityTimeline from '@/components/ActivityTimeline';
+import ModelSelector from '@/components/ModelSelector';
 import { Loader2, CheckCircle, Play, AlertTriangle, Upload, Library, Bot, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -32,6 +33,7 @@ export default function Home() {
   const [uploadedMetadata, setUploadedMetadata] = useState<any>(null);
   const [refreshLibrary, setRefreshLibrary] = useState(0);
   const [processingMode, setProcessingMode] = useState<'agentic' | 'manual' | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
 
   const handleUploadComplete = async (uploadData: any) => {
     setFileId(uploadData.id);
@@ -42,7 +44,7 @@ export default function Home() {
   const handleStartProcessing = async () => {
     if (!fileId) return;
     try {
-      const response = await axios.post(`${API_URL}/process/${fileId}`);
+      const response = await axios.post(`${API_URL}/process/${fileId}`, { model: selectedModel });
       setJobId(response.data.id);
       setPolling(true);
     } catch (error) {
@@ -196,6 +198,11 @@ export default function Home() {
                   <span className="font-medium">Agentic Mode Selected</span>
                 </div>
                 <VideoMetadata metadata={uploadedMetadata} />
+                <ModelSelector
+                  videoDuration={uploadedMetadata?.duration}
+                  selectedModel={selectedModel}
+                  onSelect={setSelectedModel}
+                />
                 <div className="flex gap-4">
                   <Button onClick={handleStartProcessing} className="flex-1">
                     <Play className="w-4 h-4 mr-2" />
