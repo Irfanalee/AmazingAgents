@@ -69,8 +69,12 @@ class AIEngine:
 
     def _parse_timestamps(self, response_text: str):
         try:
-            # Clean up potential markdown code blocks
-            text = response_text.replace("```json", "").replace("```", "").strip()
+            # Extract the first [...] block to handle extra text before/after JSON
+            start = response_text.find('[')
+            end = response_text.rfind(']')
+            if start == -1 or end == -1:
+                raise json.JSONDecodeError("No JSON array found", response_text, 0)
+            text = response_text[start:end + 1]
             data = json.loads(text)
             
             # Convert MM:SS to seconds

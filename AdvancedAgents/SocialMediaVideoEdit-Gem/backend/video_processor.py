@@ -30,9 +30,14 @@ class VideoProcessor:
         try:
             print(f"Concatenating {len(video_paths)} videos to {output_path}")
             inputs = [ffmpeg.input(path) for path in video_paths]
+            # concat with v=1,a=1 needs interleaved [v0, a0, v1, a1, ...]
+            streams = []
+            for inp in inputs:
+                streams.append(inp.video)
+                streams.append(inp.audio)
             (
                 ffmpeg
-                .concat(*inputs, v=1, a=1)
+                .concat(*streams, v=1, a=1)
                 .output(output_path, vcodec='libx264', acodec='aac', preset='fast', crf=23)
                 .overwrite_output()
                 .run(quiet=True)

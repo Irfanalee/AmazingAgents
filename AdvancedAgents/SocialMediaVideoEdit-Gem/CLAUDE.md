@@ -44,7 +44,6 @@ Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
 
 ### Docker (recommended)
 ```bash
-./setup.sh                    # first-time setup (prompts for API key)
 docker-compose up --build     # start both containers
 ```
 Ports: frontend → 3000, backend → 8000.
@@ -78,5 +77,3 @@ Check these files when working on the relevant area:
 |-------|------|
 | Architectural patterns & design decisions | `.claude/docs/architectural_patterns.md` |
 | Agent role definitions | `.agent/workflows/qazi.md`, `trond.md`, `hans.md` |
-| Installation & Docker details | `INSTALL.md` |
-| Common issues | `TROUBLESHOOTING.md` |
