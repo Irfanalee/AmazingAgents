@@ -47,14 +47,14 @@ class VideoProcessor:
             print(f"Error concatenating: {e.stderr.decode('utf8') if e.stderr else str(e)}")
             return False
 
-    def cut_shorts(self, original_video: str, highlights: list, job_id: str) -> list:
+    def cut_shorts(self, original_video: str, highlights: list, base_name: str) -> list:
         """
         Cuts each highlight as an individual short clip saved to processed/.
         Returns list of output file paths.
         """
         paths = []
         for i, highlight in enumerate(highlights):
-            out = f"processed/short_{job_id}_{i+1}.mp4"
+            out = f"processed/{base_name}_short_{i+1}.mp4"
             if self.cut_video(original_video, highlight['start'], highlight['end'], out):
                 paths.append(out)
                 print(f"Short {i+1} saved: {out}")

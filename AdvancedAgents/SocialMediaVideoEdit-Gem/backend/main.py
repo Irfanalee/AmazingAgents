@@ -345,12 +345,21 @@ async def run_processing_agent(job_id: str, file_path: str):
     try:
         highlights = jobs[job_id]["highlights"]
         await send_log(job_id, "Agent Trond: Starting video processing with FFmpeg...")
-        output_filename = f"processed_{job_id}.mp4"
+
+        # Build human-readable base name from original filename + timestamp
+        original_name = os.path.splitext(os.path.basename(file_path))[0]
+        # Strip the UUID prefix (format: {uuid}_{original_name})
+        if '_' in original_name:
+            original_name = original_name.split('_', 1)[1]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = f"{original_name}_{timestamp}"
+
+        output_filename = f"{base_name}_highlights.mp4"
         output_path = f"processed/{output_filename}"
-        
+
         await send_log(job_id, f"Agent Trond: Cutting {len(highlights)} video segments...")
         success = video_processor.process_highlights(file_path, highlights, output_path)
-        
+
         if success:
             jobs[job_id]["output_url"] = f"/static/{output_filename}"
 
@@ -358,7 +367,7 @@ async def run_processing_agent(job_id: str, file_path: str):
             await send_log(job_id, "Agent Trond: Generating individual shorts...")
             loop = asyncio.get_event_loop()
             short_paths = await loop.run_in_executor(
-                None, video_processor.cut_shorts, file_path, highlights, job_id
+                None, video_processor.cut_shorts, file_path, highlights, base_name
             )
             jobs[job_id]["shorts"] = [f"/static/{os.path.basename(p)}" for p in short_paths]
             await send_log(job_id, f"✓ Generated {len(short_paths)} individual shorts", "success")
