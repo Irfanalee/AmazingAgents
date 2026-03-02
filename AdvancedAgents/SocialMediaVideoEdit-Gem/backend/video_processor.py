@@ -60,6 +60,39 @@ class VideoProcessor:
                 print(f"Short {i+1} saved: {out}")
         return paths
 
+    def compress_for_upload(self, input_path: str, output_path: str, target_size_gb: float = 1.8) -> bool:
+        """
+        Compress video to a target file size using H.265 for Gemini upload.
+        Calculates the required bitrate from duration and target size.
+        Original file is never modified.
+        """
+        try:
+            probe = ffmpeg.probe(input_path)
+            duration = float(probe['format']['duration'])
+            # Reserve ~128 kbps for audio, rest goes to video
+            target_bits = target_size_gb * 1024 * 1024 * 1024 * 8
+            audio_bits = 128_000 * duration
+            video_bitrate = int((target_bits - audio_bits) / duration)
+            print(f"Compressing for upload: duration={duration:.1f}s, target={target_size_gb}GB, video_bitrate={video_bitrate//1000}kbps")
+            (
+                ffmpeg
+                .input(input_path)
+                .output(
+                    output_path,
+                    vcodec='libx265',
+                    b__v=video_bitrate,
+                    acodec='aac',
+                    b__a='128k',
+                    preset='fast',
+                )
+                .overwrite_output()
+                .run(quiet=True)
+            )
+            return True
+        except ffmpeg.Error as e:
+            print(f"Compression failed: {e.stderr.decode('utf8') if e.stderr else str(e)}")
+            return False
+
     def process_highlights(self, original_video: str, highlights: list, output_path: str):
         """
         Cuts each highlight and concatenates them into a single highlights reel.

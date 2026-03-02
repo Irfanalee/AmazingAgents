@@ -4,6 +4,7 @@ import json
 import asyncio
 from google import genai
 from dotenv import load_dotenv
+from video_processor import VideoProcessor
 
 load_dotenv()
 
@@ -13,22 +14,40 @@ class AIEngine:
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
+    GEMINI_SIZE_LIMIT = int(1.9 * 1024 * 1024 * 1024)  # 1.9 GB
+
     def upload_file(self, path: str):
-        print(f"Uploading file: {path}")
-        video_file = self.client.files.upload(file=path)
-        print(f"Completed upload: {video_file.uri}")
+        upload_path = path
+        temp_path = None
 
-        # Wait for file to be active
-        while video_file.state.name == "PROCESSING":
-            print("Processing video...", end="\r")
-            time.sleep(5)
-            video_file = self.client.files.get(name=video_file.name)
+        if os.path.getsize(path) > self.GEMINI_SIZE_LIMIT:
+            temp_path = path + "_compressed.mp4"
+            print(f"File exceeds 1.9 GB — compressing to {temp_path} before upload")
+            vp = VideoProcessor()
+            if not vp.compress_for_upload(path, temp_path):
+                raise RuntimeError("Compression failed before Gemini upload")
+            upload_path = temp_path
 
-        if video_file.state.name == "FAILED":
-            raise ValueError("Video processing failed")
+        try:
+            print(f"Uploading file: {upload_path}")
+            video_file = self.client.files.upload(file=upload_path)
+            print(f"Completed upload: {video_file.uri}")
 
-        print(f"\nFile is active: {video_file.name}")
-        return video_file
+            # Wait for file to be active
+            while video_file.state.name == "PROCESSING":
+                print("Processing video...", end="\r")
+                time.sleep(5)
+                video_file = self.client.files.get(name=video_file.name)
+
+            if video_file.state.name == "FAILED":
+                raise ValueError("Video processing failed")
+
+            print(f"\nFile is active: {video_file.name}")
+            return video_file
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+                print(f"Deleted temp compressed file: {temp_path}")
 
     async def analyze_video(self, video_path: str, model: str = "gemini-2.5-flash-lite"):
         """
