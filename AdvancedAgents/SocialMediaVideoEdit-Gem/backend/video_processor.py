@@ -14,7 +14,7 @@ class VideoProcessor:
             (
                 ffmpeg
                 .input(input_path, ss=start_time, to=end_time)
-                .output(output_path, vcodec='copy', acodec='copy')
+                .output(output_path, vcodec='copy', acodec='copy', avoid_negative_ts='make_zero')
                 .overwrite_output()
                 .run(quiet=True)
             )
