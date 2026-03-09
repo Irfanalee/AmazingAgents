@@ -92,8 +92,13 @@ export default function Home() {
         if (['completed', 'failed'].includes(response.data.status)) {
           setPolling(false);
         }
-      } catch (error) {
-        console.error("Polling error:", error);
+      } catch (error: any) {
+        if (error?.response?.status === 404) {
+          console.warn("Job not found (server may have restarted) — stopping poll");
+          setPolling(false);
+        } else {
+          console.error("Polling error:", error);
+        }
       }
     }, 2000);
 

@@ -14,40 +14,33 @@ class AIEngine:
     def __init__(self):
         self.client = genai.Client(api_key=GEMINI_API_KEY)
 
-    GEMINI_SIZE_LIMIT = int(1.9 * 1024 * 1024 * 1024)  # 1.9 GB
-
     def upload_file(self, path: str):
-        upload_path = path
-        temp_path = None
-
-        if os.path.getsize(path) > self.GEMINI_SIZE_LIMIT:
-            temp_path = path + "_compressed.mp4"
-            print(f"File exceeds 1.9 GB — compressing to {temp_path} before upload")
-            vp = VideoProcessor()
-            if not vp.compress_for_upload(path, temp_path):
-                raise RuntimeError("Compression failed before Gemini upload")
-            upload_path = temp_path
-
+        proxy_path = path + "_proxy.mp4"
         try:
-            print(f"Uploading file: {upload_path}")
-            video_file = self.client.files.upload(file=upload_path)
+            vp = VideoProcessor()
+            if not vp.make_proxy(path, proxy_path):
+                raise RuntimeError("Proxy creation failed before Gemini upload")
+
+            print(f"Uploading proxy to Gemini: {proxy_path}")
+            video_file = self.client.files.upload(file=proxy_path)
             print(f"Completed upload: {video_file.uri}")
 
-            # Wait for file to be active
+            elapsed = 0
             while video_file.state.name == "PROCESSING":
-                print("Processing video...", end="\r")
                 time.sleep(5)
+                elapsed += 5
                 video_file = self.client.files.get(name=video_file.name)
+                print(f"Gemini processing... {elapsed}s")
 
             if video_file.state.name == "FAILED":
                 raise ValueError("Video processing failed")
 
-            print(f"\nFile is active: {video_file.name}")
+            print(f"File is active: {video_file.name}")
             return video_file
         finally:
-            if temp_path and os.path.exists(temp_path):
-                os.remove(temp_path)
-                print(f"Deleted temp compressed file: {temp_path}")
+            if os.path.exists(proxy_path):
+                os.remove(proxy_path)
+                print(f"Deleted proxy file: {proxy_path}")
 
     async def analyze_video(self, video_path: str, model: str = "gemini-2.5-flash-lite"):
         """

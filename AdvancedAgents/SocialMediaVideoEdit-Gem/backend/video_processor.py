@@ -25,20 +25,18 @@ class VideoProcessor:
 
     def concatenate_videos(self, video_paths: list, output_path: str):
         """
-        Concatenates multiple video files, including audio (v=1, a=1).
+        Concatenates multiple video files using the concat demuxer (stream copy, no re-encode).
         """
+        filelist = output_path + "_filelist.txt"
         try:
             print(f"Concatenating {len(video_paths)} videos to {output_path}")
-            inputs = [ffmpeg.input(path) for path in video_paths]
-            # concat with v=1,a=1 needs interleaved [v0, a0, v1, a1, ...]
-            streams = []
-            for inp in inputs:
-                streams.append(inp.video)
-                streams.append(inp.audio)
+            with open(filelist, 'w') as f:
+                for path in video_paths:
+                    f.write(f"file '{os.path.abspath(path)}'\n")
             (
                 ffmpeg
-                .concat(*streams, v=1, a=1)
-                .output(output_path, vcodec='libx264', acodec='aac', preset='fast', crf=23)
+                .input(filelist, format='concat', safe=0)
+                .output(output_path, c='copy')
                 .overwrite_output()
                 .run(quiet=True)
             )
@@ -46,6 +44,9 @@ class VideoProcessor:
         except ffmpeg.Error as e:
             print(f"Error concatenating: {e.stderr.decode('utf8') if e.stderr else str(e)}")
             return False
+        finally:
+            if os.path.exists(filelist):
+                os.remove(filelist)
 
     def cut_shorts(self, original_video: str, highlights: list, base_name: str) -> list:
         """
@@ -59,6 +60,37 @@ class VideoProcessor:
                 paths.append(out)
                 print(f"Short {i+1} saved: {out}")
         return paths
+
+    def make_proxy(self, input_path: str, output_path: str) -> bool:
+        """
+        Creates a 480p proxy of the video for Gemini upload.
+        Much smaller file = faster upload and faster Gemini processing.
+        Original file is never modified — clips are still cut from the original.
+        """
+        try:
+            print(f"Creating 480p proxy for Gemini: {output_path}")
+            (
+                ffmpeg
+                .input(input_path)
+                .output(
+                    output_path,
+                    vf='scale=854:480:force_original_aspect_ratio=decrease',
+                    vcodec='libx264',
+                    preset='ultrafast',
+                    crf=28,
+                    acodec='aac',
+                    b__a='64k',
+                    ac=1,
+                )
+                .overwrite_output()
+                .run(quiet=True)
+            )
+            proxy_mb = os.path.getsize(output_path) / (1024 * 1024)
+            print(f"Proxy created: {proxy_mb:.1f} MB")
+            return True
+        except ffmpeg.Error as e:
+            print(f"Proxy creation failed: {e.stderr.decode('utf8') if e.stderr else str(e)}")
+            return False
 
     def compress_for_upload(self, input_path: str, output_path: str, target_size_gb: float = 1.8) -> bool:
         """
