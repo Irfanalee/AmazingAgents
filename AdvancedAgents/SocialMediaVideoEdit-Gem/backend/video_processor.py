@@ -74,13 +74,13 @@ class VideoProcessor:
                 .input(input_path)
                 .output(
                     output_path,
-                    vf='scale=854:480:force_original_aspect_ratio=decrease',
+                    vf='scale=-2:480',
                     vcodec='libx264',
                     preset='ultrafast',
                     crf=28,
                     acodec='aac',
-                    b__a='64k',
                     ac=1,
+                    **{'b:a': '64k'},
                 )
                 .overwrite_output()
                 .run(quiet=True)
@@ -112,10 +112,9 @@ class VideoProcessor:
                 .output(
                     output_path,
                     vcodec='libx265',
-                    b__v=video_bitrate,
                     acodec='aac',
-                    b__a='128k',
                     preset='fast',
+                    **{'b:v': video_bitrate, 'b:a': '128k'},
                 )
                 .overwrite_output()
                 .run(quiet=True)
