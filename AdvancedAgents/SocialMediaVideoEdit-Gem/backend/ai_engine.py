@@ -26,7 +26,10 @@ class AIEngine:
             print(f"Completed upload: {video_file.uri}")
 
             elapsed = 0
+            timeout = 600  # 10 minutes
             while video_file.state.name == "PROCESSING":
+                if elapsed >= timeout:
+                    raise TimeoutError(f"Gemini video processing timed out after {timeout}s")
                 time.sleep(5)
                 elapsed += 5
                 video_file = self.client.files.get(name=video_file.name)
