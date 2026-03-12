@@ -1,0 +1,246 @@
+import React, { useState, useRef, useEffect } from 'react'
+import { useApp } from '../App'
+import { useAnalysis } from '../hooks/useAnalysis'
+import OutputRenderer from './OutputRenderer'
+import { formatCost, formatTokens } from '../lib/utils'
+import type { Prompt, StoredAnalysis, AnalysisMeta } from '../types'
+
+interface AnalysisTabProps {
+  prompt: Prompt
+  sessionId: string | null
+  onComplete?: (promptId: string, data: StoredAnalysis) => void
+}
+
+export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisTabProps) {
+  const { apiKey, sharedContext } = useApp()
+  const { status, output, meta, error, run, reset } = useAnalysis()
+  const [extraInputs, setExtraInputs] = useState<Record<string, string>>({})
+  const [model, setModel] = useState<string>('claude-sonnet-4-6')
+  const outputRef = useRef<HTMLDivElement>(null)
+
+  // Restore previous output if passed in
+  const [savedOutput, setSavedOutput] = useState<string>(prompt.existingOutput || '')
+  const [savedMeta, setSavedMeta] = useState<AnalysisMeta | null>(prompt.existingMeta || null)
+
+  const displayOutput = output || savedOutput
+  const displayMeta = meta || savedMeta
+  const isRunning = status === 'loading' || status === 'streaming'
+
+  // Auto-scroll output while streaming
+  useEffect(() => {
+    if (status === 'streaming' && outputRef.current) {
+      outputRef.current.scrollTop = outputRef.current.scrollHeight
+    }
+  }, [output, status])
+
+  // Bubble completed analysis up
+  useEffect(() => {
+    if (status === 'done' && meta && output) {
+      setSavedOutput(output)
+      setSavedMeta(meta)
+      if (onComplete) {
+        onComplete(prompt.id, {
+          prompt_id: prompt.id,
+          output,
+          ...meta,
+        })
+      }
+    }
+  }, [status, meta, output])
+
+  async function handleGenerate() {
+    if (!apiKey) {
+      alert('No API key set. Please go to Setup.')
+      return
+    }
+    await run(apiKey, {
+      prompt_id: prompt.id,
+      shared_context: sharedContext,
+      extra_inputs: extraInputs,
+      model,
+      session_id: sessionId,
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Prompt info header */}
+      <div>
+        <h2 style={{
+          fontSize: '22px',
+          fontWeight: 700,
+          color: 'var(--text-primary)',
+          margin: '0 0 6px',
+        }}>
+          {prompt.title}
+        </h2>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+          McKinsey-grade analysis powered by Claude AI
+        </p>
+      </div>
+
+      {/* Extra inputs (prompt-specific) */}
+      {prompt.extra_inputs && prompt.extra_inputs.length > 0 && (
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          padding: '14px 16px',
+        }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Additional Inputs
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+            {prompt.extra_inputs.map(field => (
+              <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {field.label}
+                  {!field.required && <span style={{ color: 'var(--text-muted)', marginLeft: '4px' }}>(optional)</span>}
+                </label>
+                <input
+                  className="theme-input"
+                  type="text"
+                  placeholder={field.placeholder}
+                  value={extraInputs[field.key] || ''}
+                  onChange={e => setExtraInputs(prev => ({ ...prev, [field.key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Model selector + Generate button */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          className="theme-input"
+          value={model}
+          onChange={e => setModel(e.target.value)}
+          style={{ width: 'auto', minWidth: '200px' }}
+          disabled={isRunning}
+        >
+          <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
+          <option value="claude-opus-4-6">Claude Opus 4.6 (Highest Quality)</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Fastest)</option>
+        </select>
+
+        <button
+          className="theme-btn-primary"
+          onClick={handleGenerate}
+          disabled={isRunning}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          {isRunning ? (
+            <>
+              <span className="spinner" style={{ width: '14px', height: '14px' }} />
+              {status === 'loading' ? 'Preparing…' : 'Generating…'}
+            </>
+          ) : (
+            <>
+              ⚡ {displayOutput ? 'Regenerate' : 'Generate Analysis'}
+            </>
+          )}
+        </button>
+
+        {isRunning && (
+          <button className="theme-btn-secondary" onClick={() => { }}>
+            Stop
+          </button>
+        )}
+
+        {displayOutput && !isRunning && (
+          <button
+            className="theme-btn-secondary"
+            onClick={reset}
+            style={{ fontSize: '12px' }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{
+          background: 'color-mix(in srgb, #ef4444 15%, var(--bg-card))',
+          border: '1px solid color-mix(in srgb, #ef4444 40%, transparent)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          color: '#fca5a5',
+          fontSize: '14px',
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Meta bar (tokens / cost / cache) */}
+      {displayMeta && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap',
+          fontSize: '12px',
+          color: 'var(--text-muted)',
+          padding: '6px 0',
+          borderBottom: '1px solid var(--border-color)',
+        }}>
+          {displayMeta.from_cache && (
+            <span className="badge-cached">⚡ Cached</span>
+          )}
+          {displayMeta.input_tokens != null && (
+            <span>↑ {formatTokens(displayMeta.input_tokens)} tokens</span>
+          )}
+          {displayMeta.output_tokens != null && (
+            <span>↓ {formatTokens(displayMeta.output_tokens)} tokens</span>
+          )}
+          {displayMeta.cost_usd != null && (
+            <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
+              {formatCost(displayMeta.cost_usd)}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Output */}
+      {displayOutput && (
+        <div
+          ref={outputRef}
+          style={{
+            background: 'var(--output-bg)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            padding: '20px 24px',
+            maxHeight: '70vh',
+            overflowY: 'auto',
+          }}
+        >
+          <OutputRenderer
+            content={displayOutput}
+            isStreaming={status === 'streaming'}
+          />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!displayOutput && !isRunning && status === 'idle' && (
+        <div style={{
+          background: 'var(--bg-card)',
+          border: '1px dashed var(--border-color)',
+          borderRadius: '8px',
+          padding: '40px 20px',
+          textAlign: 'center',
+          color: 'var(--text-muted)',
+        }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>📄</div>
+          <div style={{ fontSize: '15px', fontWeight: 500, marginBottom: '6px' }}>
+            No analysis yet
+          </div>
+          <div style={{ fontSize: '13px' }}>
+            Fill in your business context above, then click Generate Analysis.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

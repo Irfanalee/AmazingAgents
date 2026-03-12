@@ -1,0 +1,399 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Google Font fallback ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── CSS Theme Variables ───────────────────────────────────────── */
+
+/* Theme 1: McKinsey Dark (default) */
+:root,
+[data-theme="mckinsey-dark"] {
+  --bg-primary: #0A2342;
+  --bg-secondary: #0d2d55;
+  --bg-card: #112e5e;
+  --bg-hover: #163570;
+  --border-color: #1e4a8a;
+  --text-primary: #f0f4ff;
+  --text-secondary: #a8bcd8;
+  --text-muted: #6b85a8;
+  --accent-primary: #C9A84C;
+  --accent-hover: #e0bc6a;
+  --accent-text: #C9A84C;
+  --badge-complete-bg: #1a4a1a;
+  --badge-complete-text: #4ade80;
+  --sidebar-width: 260px;
+  --input-bg: #0d2d55;
+  --input-border: #1e4a8a;
+  --input-focus: #C9A84C;
+  --btn-primary-bg: #C9A84C;
+  --btn-primary-text: #0A2342;
+  --btn-primary-hover: #e0bc6a;
+  --scrollbar-thumb: #1e4a8a;
+  --scrollbar-track: #0A2342;
+  --streaming-cursor: #C9A84C;
+  --output-bg: #061829;
+  --code-bg: #061829;
+  --table-header-bg: #0d2d55;
+  --table-row-alt: #0a2545;
+}
+
+/* Theme 2: Premium White */
+[data-theme="premium-white"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8faff;
+  --bg-card: #ffffff;
+  --bg-hover: #eef2ff;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-primary: #2563EB;
+  --accent-hover: #1d4ed8;
+  --accent-text: #2563EB;
+  --badge-complete-bg: #dcfce7;
+  --badge-complete-text: #16a34a;
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-focus: #2563EB;
+  --btn-primary-bg: #2563EB;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #1d4ed8;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-track: #f8faff;
+  --streaming-cursor: #2563EB;
+  --output-bg: #f8faff;
+  --code-bg: #f1f5f9;
+  --table-header-bg: #1e3a8a;
+  --table-row-alt: #f0f4ff;
+}
+
+/* Theme 3: Data Dashboard */
+[data-theme="data-dashboard"] {
+  --bg-primary: #0D1117;
+  --bg-secondary: #161b22;
+  --bg-card: #1c2128;
+  --bg-hover: #21262d;
+  --border-color: #30363d;
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --accent-primary: #00D4FF;
+  --accent-hover: #33DDFF;
+  --accent-text: #00D4FF;
+  --badge-complete-bg: #0d2c1e;
+  --badge-complete-text: #3fb950;
+  --input-bg: #161b22;
+  --input-border: #30363d;
+  --input-focus: #00D4FF;
+  --btn-primary-bg: #00D4FF;
+  --btn-primary-text: #0D1117;
+  --btn-primary-hover: #33DDFF;
+  --scrollbar-thumb: #30363d;
+  --scrollbar-track: #0D1117;
+  --streaming-cursor: #00D4FF;
+  --output-bg: #0D1117;
+  --code-bg: #161b22;
+  --table-header-bg: #21262d;
+  --table-row-alt: #161b22;
+}
+
+/* ── Base styles ─────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* ── Theme-aware component classes ────────────────────────── */
+.theme-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.theme-input {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 100%;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.theme-input:focus {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--input-focus) 20%, transparent);
+}
+
+.theme-input::placeholder {
+  color: var(--text-muted);
+}
+
+.theme-btn-primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.theme-btn-primary:hover:not(:disabled) {
+  background-color: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+.theme-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.theme-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.theme-btn-secondary {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-btn-secondary:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* ── Streaming cursor ────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: '▋';
+  color: var(--streaming-cursor);
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+/* ── Markdown output styles ──────────────────────────────────── */
+.markdown-output {
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.markdown-output h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.markdown-output h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 20px 0 10px;
+}
+
+.markdown-output h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  margin: 16px 0 8px;
+}
+
+.markdown-output p {
+  margin: 10px 0;
+  color: var(--text-secondary);
+}
+
+.markdown-output ul, .markdown-output ol {
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.markdown-output li {
+  margin: 5px 0;
+  color: var(--text-secondary);
+}
+
+.markdown-output strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.markdown-output em {
+  color: var(--text-secondary);
+}
+
+.markdown-output code {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--accent-primary);
+}
+
+.markdown-output pre {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 14px 0;
+}
+
+.markdown-output pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.markdown-output blockquote {
+  border-left: 3px solid var(--accent-primary);
+  background-color: var(--bg-hover);
+  margin: 12px 0;
+  padding: 10px 16px;
+  border-radius: 0 6px 6px 0;
+}
+
+.markdown-output blockquote p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.markdown-output table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+.markdown-output table th {
+  background-color: var(--table-header-bg);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+}
+
+.markdown-output table td {
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.markdown-output table tr:nth-child(even) td {
+  background-color: var(--table-row-alt);
+}
+
+.markdown-output hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 20px 0;
+}
+
+/* ── Sidebar active state ──────────────────────────────────── */
+.sidebar-item-active {
+  background-color: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+  border-left: 3px solid var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.sidebar-item-complete .sidebar-badge {
+  background-color: var(--badge-complete-bg);
+  color: var(--badge-complete-text);
+}
+
+/* ── Glowing accent (Data Dashboard theme) ──────────────────── */
+[data-theme="data-dashboard"] .glow-accent {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent-primary) 30%, transparent);
+}
+
+[data-theme="data-dashboard"] .theme-btn-primary {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-primary) 40%, transparent);
+}
+
+/* ── Loading spinner ─────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+/* ── Toast / Badge ──────────────────────────────────────────── */
+.badge-cached {
+  background-color: color-mix(in srgb, #C9A84C 20%, transparent);
+  color: #C9A84C;
+  border: 1px solid color-mix(in srgb, #C9A84C 40%, transparent);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+[data-theme="premium-white"] .badge-cached {
+  background-color: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+[data-theme="data-dashboard"] .badge-cached {
+  background-color: color-mix(in srgb, #00D4FF 15%, transparent);
+  color: #00D4FF;
+  border-color: color-mix(in srgb, #00D4FF 40%, transparent);
+}
