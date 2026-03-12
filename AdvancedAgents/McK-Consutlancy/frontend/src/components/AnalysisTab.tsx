@@ -3,6 +3,7 @@ import { useApp } from '../App'
 import { useAnalysis } from '../hooks/useAnalysis'
 import OutputRenderer from './OutputRenderer'
 import { formatCost, formatTokens } from '../lib/utils'
+import { fetchCostEstimate } from '../lib/api'
 import type { Prompt, StoredAnalysis, AnalysisMeta } from '../types'
 
 interface AnalysisTabProps {
@@ -16,6 +17,7 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
   const { status, output, meta, error, run, reset } = useAnalysis()
   const [extraInputs, setExtraInputs] = useState<Record<string, string>>({})
   const [model, setModel] = useState<string>('claude-sonnet-4-6')
+  const [costEstimate, setCostEstimate] = useState<number | null>(null)
   const outputRef = useRef<HTMLDivElement>(null)
 
   // Restore previous output if passed in
@@ -47,6 +49,33 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
       }
     }
   }, [status, meta, output])
+
+  // Sync saved output if analyses load after mount (async session load)
+  useEffect(() => {
+    if (status === 'idle' && !savedOutput && prompt.existingOutput) {
+      setSavedOutput(prompt.existingOutput)
+      setSavedMeta(prompt.existingMeta || null)
+    }
+  }, [prompt.existingOutput, prompt.existingMeta])
+
+  // Fetch cost estimate whenever model or extra inputs change
+  useEffect(() => {
+    if (!apiKey) return
+    const timer = setTimeout(async () => {
+      try {
+        const result = await fetchCostEstimate(apiKey, {
+          prompt_id: prompt.id,
+          shared_context: sharedContext,
+          extra_inputs: extraInputs,
+          model,
+        })
+        setCostEstimate(result.cost_usd_estimate)
+      } catch {
+        setCostEstimate(null)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [model, extraInputs, prompt.id])
 
   async function handleGenerate() {
     if (!apiKey) {
@@ -146,6 +175,12 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
           <button className="theme-btn-secondary" onClick={() => { }}>
             Stop
           </button>
+        )}
+
+        {!isRunning && !displayMeta && costEstimate !== null && (
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            Est. ~{formatCost(costEstimate)}
+          </span>
         )}
 
         {displayOutput && !isRunning && (

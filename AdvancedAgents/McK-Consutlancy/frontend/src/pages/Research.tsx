@@ -38,23 +38,22 @@ export default function Research() {
   }, [])
 
   const completedIds = Object.keys(analyses)
-  const activePrompt = prompts.find(p => p.id === activePromptId)
 
-  // Enrich active prompt with existing analysis data
-  const enrichedPrompt: Prompt | null = activePrompt
-    ? {
-        ...activePrompt,
-        existingOutput: analyses[activePrompt.id]?.output || '',
-        existingMeta: analyses[activePrompt.id]
-          ? {
-              from_cache: analyses[activePrompt.id].from_cache,
-              input_tokens: analyses[activePrompt.id].input_tokens,
-              output_tokens: analyses[activePrompt.id].output_tokens,
-              cost_usd: analyses[activePrompt.id].cost_usd,
-            }
-          : null,
-      }
-    : null
+  // Enrich each prompt with its existing analysis data
+  function enrichPrompt(p: Prompt): Prompt {
+    return {
+      ...p,
+      existingOutput: analyses[p.id]?.output || '',
+      existingMeta: analyses[p.id]
+        ? {
+            from_cache: analyses[p.id].from_cache,
+            input_tokens: analyses[p.id].input_tokens,
+            output_tokens: analyses[p.id].output_tokens,
+            cost_usd: analyses[p.id].cost_usd,
+          }
+        : null,
+    }
+  }
 
   async function handleContextSave(ctx: Partial<SharedContext>) {
     await ensureSession(ctx, _theme)
@@ -143,14 +142,16 @@ export default function Research() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
             <SharedContextPanel onSave={handleContextSave} />
 
-            {enrichedPrompt && (
-              <AnalysisTab
-                key={activePromptId ?? undefined}
-                prompt={enrichedPrompt}
-                sessionId={sessionId}
-                onComplete={handleAnalysisComplete}
-              />
-            )}
+            {/* Render all tabs but only show the active one — keeps hooks/streams alive on tab switch */}
+            {prompts.map(p => (
+              <div key={p.id} style={{ display: p.id === activePromptId ? 'block' : 'none' }}>
+                <AnalysisTab
+                  prompt={enrichPrompt(p)}
+                  sessionId={sessionId}
+                  onComplete={handleAnalysisComplete}
+                />
+              </div>
+            ))}
           </div>
 
           {/* Right: cost tracker */}

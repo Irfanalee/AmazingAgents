@@ -15,7 +15,7 @@ from .database import (
     Analysis as AnalysisModel,
     Cache as CacheModel,
 )
-from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest
+from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, estimate_cost
 from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
 from .claude_client import stream_analysis
 from .export_service import generate_docx, generate_pdf
@@ -52,6 +52,32 @@ def get_prompt(prompt_id: str):
 
 
 # ── Streaming analysis ────────────────────────────────────────────────────────
+
+@app.post("/api/analyze/estimate")
+async def estimate_analysis_cost(
+    request: AnalyzeRequest,
+    x_api_key: Optional[str] = Header(None),
+):
+    if not x_api_key:
+        raise HTTPException(400, "X-API-Key header required")
+
+    filled = fill_prompt(request.prompt_id, request.shared_context, request.extra_inputs)
+    if not filled:
+        raise HTTPException(404, f"Prompt '{request.prompt_id}' not found")
+
+    # ~4 chars per token is a reliable estimate for English prose
+    input_tokens_estimate = len(filled) // 4
+    # Assume ~2000 output tokens as a midpoint of the 4096 max
+    output_tokens_estimate = 2000
+    cost = estimate_cost(request.model, input_tokens_estimate, output_tokens_estimate)
+
+    return {
+        "input_tokens_estimate": input_tokens_estimate,
+        "output_tokens_estimate": output_tokens_estimate,
+        "cost_usd_estimate": round(cost, 6),
+        "model": request.model,
+    }
+
 
 @app.post("/api/analyze/stream")
 async def analyze_stream(

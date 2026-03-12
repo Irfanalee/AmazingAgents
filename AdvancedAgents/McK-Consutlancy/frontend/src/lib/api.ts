@@ -70,6 +70,22 @@ export async function exportReport(
   return client(apiKey).post<Blob>('/export', data, { responseType: 'blob' })
 }
 
+// ── Cost estimate ─────────────────────────────────────────────────
+export interface CostEstimate {
+  input_tokens_estimate: number
+  output_tokens_estimate: number
+  cost_usd_estimate: number
+  model: string
+}
+
+export async function fetchCostEstimate(
+  apiKey: string,
+  payload: Record<string, unknown>
+): Promise<CostEstimate> {
+  const res = await client(apiKey).post<CostEstimate>('/analyze/estimate', payload)
+  return res.data
+}
+
 // ── Streaming analysis ────────────────────────────────────────────
 // Returns a fetch Response — caller should read the SSE stream
 export function startAnalysisStream(

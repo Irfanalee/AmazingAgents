@@ -1,44 +1,19 @@
 import os
 import uuid
-import re
 from typing import List
 from datetime import datetime
 
+import markdown as md
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
+from htmldocx import HtmlToDocx
 
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
 os.makedirs(EXPORTS_DIR, exist_ok=True)
 
 
-# ── DOCX helpers ─────────────────────────────────────────────────────────────
-
-def _set_heading_color(run, hex_color: str):
-    r = run._r
-    rPr = r.get_or_add_rPr()
-    color_elem = OxmlElement("w:color")
-    color_elem.set(qn("w:val"), hex_color)
-    rPr.append(color_elem)
-
-
-def _add_styled_heading(doc, text: str, level: int):
-    heading = doc.add_heading(text, level=level)
-    heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    for run in heading.runs:
-        if level == 1:
-            run.font.color.rgb = RGBColor(0x0A, 0x23, 0x42)
-            run.font.size = Pt(18)
-        elif level == 2:
-            run.font.color.rgb = RGBColor(0x0A, 0x23, 0x42)
-            run.font.size = Pt(14)
-        else:
-            run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
-            run.font.size = Pt(12)
-    return heading
-
+# ── DOCX ─────────────────────────────────────────────────────────────────────
 
 def generate_docx(session_name: str, analyses: List[dict]) -> str:
     doc = Document()
@@ -74,13 +49,20 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
 
     doc.add_page_break()
 
+    parser = HtmlToDocx()
+
     for analysis in analyses:
         title = analysis.get("title", analysis.get("prompt_id", "Analysis"))
         output = analysis.get("output", "")
         cost = analysis.get("cost_usd", 0)
         from_cache = analysis.get("from_cache", False)
 
-        _add_styled_heading(doc, title, level=1)
+        # Section heading
+        heading = doc.add_heading(title, level=1)
+        heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        for run in heading.runs:
+            run.font.color.rgb = RGBColor(0x0A, 0x23, 0x42)
+            run.font.size = Pt(18)
 
         # Cost meta line
         meta_p = doc.add_paragraph()
@@ -91,41 +73,13 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
         meta_run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
         meta_run.italic = True
 
+        # Convert markdown → HTML → docx (handles tables, lists, bold, etc.)
         if output:
-            for line in output.split("\n"):
-                stripped = line.strip()
-                if not stripped:
-                    doc.add_paragraph()
-                    continue
-                if stripped.startswith("### "):
-                    _add_styled_heading(doc, stripped[4:], level=3)
-                elif stripped.startswith("## "):
-                    _add_styled_heading(doc, stripped[3:], level=2)
-                elif stripped.startswith("# "):
-                    _add_styled_heading(doc, stripped[2:], level=2)
-                elif stripped.startswith(("• ", "- ", "* ")):
-                    bullet = doc.add_paragraph(stripped[2:], style="List Bullet")
-                    bullet.runs[0].font.size = Pt(11)
-                elif re.match(r"^\d+\.\s", stripped):
-                    num_text = re.sub(r"^\d+\.\s", "", stripped)
-                    np = doc.add_paragraph(num_text, style="List Number")
-                    np.runs[0].font.size = Pt(11)
-                else:
-                    # Handle inline bold/italic
-                    p = doc.add_paragraph()
-                    parts = re.split(r"(\*\*[^*]+\*\*|\*[^*]+\*)", stripped)
-                    for part in parts:
-                        if part.startswith("**") and part.endswith("**"):
-                            r = p.add_run(part[2:-2])
-                            r.bold = True
-                            r.font.size = Pt(11)
-                        elif part.startswith("*") and part.endswith("*"):
-                            r = p.add_run(part[1:-1])
-                            r.italic = True
-                            r.font.size = Pt(11)
-                        else:
-                            r = p.add_run(part)
-                            r.font.size = Pt(11)
+            content_html = md.markdown(
+                output,
+                extensions=["tables", "fenced_code"],
+            )
+            parser.add_html_to_document(content_html, doc)
 
         doc.add_page_break()
 
@@ -135,123 +89,116 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
     return filepath
 
 
-# ── PDF helpers ───────────────────────────────────────────────────────────────
+# ── PDF ───────────────────────────────────────────────────────────────────────
+
+_PDF_CSS = """
+@page {
+    margin: 2.5cm 2cm;
+    size: A4;
+}
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1a1a2e;
+    line-height: 1.65;
+    font-size: 11pt;
+}
+.cover {
+    text-align: center;
+    padding-top: 180px;
+    page-break-after: always;
+}
+.cover h1 {
+    font-size: 30px;
+    color: #0A2342;
+    margin-bottom: 14px;
+}
+.cover .subtitle {
+    font-size: 18px;
+    color: #C9A84C;
+    margin-bottom: 10px;
+}
+.cover .date {
+    font-size: 12px;
+    color: #777;
+    margin-top: 18px;
+}
+.cover .divider {
+    width: 80px;
+    height: 3px;
+    background: #C9A84C;
+    margin: 20px auto;
+}
+.chapter {
+    page-break-before: always;
+}
+.chapter-title {
+    font-size: 22px;
+    color: #0A2342;
+    font-weight: bold;
+    border-bottom: 3px solid #C9A84C;
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+}
+.chapter-meta {
+    color: #999;
+    font-size: 9pt;
+    margin-bottom: 18px;
+    font-style: italic;
+}
+h2 { font-size: 16px; color: #0A2342; margin-top: 22px; margin-bottom: 6px; }
+h3 { font-size: 13px; color: #2d3748; margin-top: 16px; margin-bottom: 4px; }
+p { margin: 7px 0; }
+ul { margin: 8px 0 8px 22px; }
+ol { margin: 8px 0 8px 22px; }
+li { margin: 3px 0; }
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 10pt;
+}
+th {
+    background: #0A2342;
+    color: white;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: bold;
+}
+td {
+    border: 1px solid #ddd;
+    padding: 6px 10px;
+}
+tr:nth-child(even) td { background: #f7f7f7; }
+blockquote {
+    border-left: 4px solid #C9A84C;
+    margin: 14px 0;
+    padding: 8px 16px;
+    background: #fdf8ee;
+    color: #444;
+}
+code {
+    background: #f0f0f0;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: monospace;
+}
+pre {
+    background: #f0f0f0;
+    padding: 12px;
+    font-size: 10px;
+}
+strong { color: #0A2342; }
+"""
+
 
 def generate_pdf(session_name: str, analyses: List[dict]) -> str:
-    import markdown as md
-    from weasyprint import HTML, CSS
-
-    css_string = """
-    @page {
-        margin: 2.5cm 2cm;
-        size: A4;
-        @bottom-right {
-            content: counter(page);
-            font-size: 10px;
-            color: #888;
-        }
-    }
-    body {
-        font-family: Arial, Helvetica, sans-serif;
-        color: #1a1a2e;
-        line-height: 1.65;
-        font-size: 11pt;
-    }
-    .cover {
-        text-align: center;
-        padding-top: 180px;
-        page-break-after: always;
-    }
-    .cover h1 {
-        font-size: 30px;
-        color: #0A2342;
-        margin-bottom: 14px;
-        letter-spacing: -0.5px;
-    }
-    .cover .subtitle {
-        font-size: 18px;
-        color: #C9A84C;
-        margin-bottom: 10px;
-    }
-    .cover .date {
-        font-size: 12px;
-        color: #777;
-        margin-top: 18px;
-    }
-    .cover .divider {
-        width: 80px;
-        height: 3px;
-        background: #C9A84C;
-        margin: 20px auto;
-    }
-    .chapter {
-        page-break-before: always;
-    }
-    .chapter-title {
-        font-size: 22px;
-        color: #0A2342;
-        font-weight: bold;
-        border-bottom: 3px solid #C9A84C;
-        padding-bottom: 8px;
-        margin-bottom: 6px;
-    }
-    .chapter-meta {
-        color: #999;
-        font-size: 9pt;
-        margin-bottom: 18px;
-        font-style: italic;
-    }
-    h2 { font-size: 16px; color: #0A2342; margin-top: 22px; margin-bottom: 6px; }
-    h3 { font-size: 13px; color: #2d3748; margin-top: 16px; margin-bottom: 4px; }
-    p { margin: 7px 0; }
-    ul { margin: 8px 0 8px 22px; }
-    ol { margin: 8px 0 8px 22px; }
-    li { margin: 3px 0; }
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 14px 0;
-        font-size: 10pt;
-    }
-    th {
-        background: #0A2342;
-        color: white;
-        padding: 7px 10px;
-        text-align: left;
-        font-weight: bold;
-    }
-    td {
-        border: 1px solid #ddd;
-        padding: 6px 10px;
-    }
-    tr:nth-child(even) td { background: #f7f7f7; }
-    blockquote {
-        border-left: 4px solid #C9A84C;
-        margin: 14px 0;
-        padding: 8px 16px;
-        background: #fdf8ee;
-        color: #444;
-    }
-    code {
-        background: #f0f0f0;
-        padding: 1px 5px;
-        border-radius: 3px;
-        font-size: 10px;
-        font-family: monospace;
-    }
-    pre {
-        background: #f0f0f0;
-        padding: 12px;
-        border-radius: 4px;
-        overflow: auto;
-        font-size: 10px;
-    }
-    strong { color: #0A2342; }
-    """
+    from xhtml2pdf import pisa
 
     html_parts = [
         f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>McKinsey Report</title></head><body>
+<html><head><meta charset="utf-8">
+<style>{_PDF_CSS}</style>
+</head><body>
 <div class="cover">
   <h1>McKinsey Market Research Report</h1>
   <div class="divider"></div>
@@ -269,7 +216,7 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
 
         content_html = md.markdown(
             output,
-            extensions=["tables", "fenced_code", "nl2br"],
+            extensions=["tables", "fenced_code"],
         )
         meta = f"Cost: ${cost:.4f}" + (" &mdash; served from cache" if from_cache else "")
 
@@ -287,5 +234,10 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
 
     filename = f"mck_report_{uuid.uuid4().hex[:8]}.pdf"
     filepath = os.path.join(EXPORTS_DIR, filename)
-    HTML(string=full_html).write_pdf(filepath, stylesheets=[CSS(string=css_string)])
+    with open(filepath, "wb") as f:
+        result = pisa.CreatePDF(full_html, dest=f)
+
+    if result.err:
+        raise RuntimeError(f"PDF generation failed with {result.err} error(s)")
+
     return filepath
