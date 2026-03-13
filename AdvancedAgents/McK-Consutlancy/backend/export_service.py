@@ -5,6 +5,7 @@ from typing import List
 from datetime import datetime
 
 import markdown as md
+from bs4 import BeautifulSoup
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -12,6 +13,37 @@ from htmldocx import HtmlToDocx
 
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
 os.makedirs(EXPORTS_DIR, exist_ok=True)
+
+
+def _tables_to_pre(html: str) -> str:
+    """Convert HTML tables to ASCII <pre> blocks — xhtml2pdf crashes on tables."""
+    soup = BeautifulSoup(html, "html.parser")
+    for table in soup.find_all("table"):
+        rows = []
+        for tr in table.find_all("tr"):
+            cells = [td.get_text(strip=True) for td in tr.find_all(["th", "td"])]
+            rows.append(cells)
+        if not rows:
+            table.decompose()
+            continue
+        num_cols = max(len(r) for r in rows)
+        col_widths = [
+            max((len(r[i]) if i < len(r) else 0) for r in rows)
+            for i in range(num_cols)
+        ]
+        lines = []
+        for idx, row in enumerate(rows):
+            padded = [
+                (row[i] if i < len(row) else "").ljust(col_widths[i])
+                for i in range(num_cols)
+            ]
+            lines.append("| " + " | ".join(padded) + " |")
+            if idx == 0:
+                lines.append("|-" + "-|-".join("-" * w for w in col_widths) + "-|")
+        pre = soup.new_tag("pre")
+        pre.string = "\n".join(lines)
+        table.replace_with(pre)
+    return str(soup)
 
 
 # ── DOCX ─────────────────────────────────────────────────────────────────────
@@ -154,20 +186,22 @@ ol { margin: 8px 0 8px 22px; }
 li { margin: 3px 0; }
 table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     margin: 14px 0;
-    font-size: 10pt;
+    font-size: 9pt;
+    word-wrap: break-word;
 }
 th {
     background: #0A2342;
     color: white;
-    padding: 7px 10px;
+    padding: 5px 4px;
     text-align: left;
     font-weight: bold;
 }
 td {
     border: 1px solid #ddd;
-    padding: 6px 10px;
+    padding: 4px 4px;
 }
 tr:nth-child(even) td { background: #f7f7f7; }
 blockquote {
@@ -219,6 +253,7 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
             output,
             extensions=["tables", "fenced_code"],
         )
+        content_html = _tables_to_pre(content_html)
         meta = f"Cost: ${cost:.4f}" + (" &mdash; served from cache" if from_cache else "")
 
         html_parts.append(
