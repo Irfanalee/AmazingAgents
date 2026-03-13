@@ -20,7 +20,7 @@ from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
 from .claude_client import stream_analysis
 from .export_service import generate_docx, generate_pdf
 
-app = FastAPI(title="McKinsey Consulting App", version="1.0.0")
+app = FastAPI(title="ProductLaunchStrategy Suite", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -298,22 +298,27 @@ def export_report(request: ExportRequest, db: DBSession = Depends(get_db)):
         c for c in session.name if c.isalnum() or c in " _-"
     ).strip()[:40] or "report"
 
-    if request.format == "docx":
-        filepath = generate_docx(session.name, analyses_data)
-        return FileResponse(
-            filepath,
-            filename=f"mck_{safe_name}.docx",
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        )
-    elif request.format == "pdf":
-        filepath = generate_pdf(session.name, analyses_data)
-        return FileResponse(
-            filepath,
-            filename=f"mck_{safe_name}.pdf",
-            media_type="application/pdf",
-        )
-    else:
-        raise HTTPException(400, "Format must be 'docx' or 'pdf'")
+    try:
+        if request.format == "docx":
+            filepath = generate_docx(session.name, analyses_data)
+            return FileResponse(
+                filepath,
+                filename=f"pls_{safe_name}.docx",
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        elif request.format == "pdf":
+            filepath = generate_pdf(session.name, analyses_data)
+            return FileResponse(
+                filepath,
+                filename=f"pls_{safe_name}.pdf",
+                media_type="application/pdf",
+            )
+        else:
+            raise HTTPException(400, "Format must be 'docx' or 'pdf'")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, f"Export failed: {exc}") from exc
 
 
 # ── Cache ─────────────────────────────────────────────────────────────────────

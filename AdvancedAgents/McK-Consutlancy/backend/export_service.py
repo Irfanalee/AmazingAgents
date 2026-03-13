@@ -1,5 +1,6 @@
 import os
 import uuid
+from html import escape
 from typing import List
 from datetime import datetime
 
@@ -30,7 +31,7 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
     doc.add_paragraph()
     title_para = doc.add_paragraph()
     title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title_para.add_run("McKinsey Market Research Report")
+    title_run = title_para.add_run("ProductLaunchStrategy Suite Report")
     title_run.bold = True
     title_run.font.size = Pt(28)
     title_run.font.color.rgb = RGBColor(0x0A, 0x23, 0x42)
@@ -83,7 +84,7 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
 
         doc.add_page_break()
 
-    filename = f"mck_report_{uuid.uuid4().hex[:8]}.docx"
+    filename = f"pls_report_{uuid.uuid4().hex[:8]}.docx"
     filepath = os.path.join(EXPORTS_DIR, filename)
     doc.save(filepath)
     return filepath
@@ -200,9 +201,9 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
 <style>{_PDF_CSS}</style>
 </head><body>
 <div class="cover">
-  <h1>McKinsey Market Research Report</h1>
+  <h1>ProductLaunchStrategy Suite Report</h1>
   <div class="divider"></div>
-  <div class="subtitle">{session_name}</div>
+  <div class="subtitle">{escape(session_name)}</div>
   <div class="date">Generated: {datetime.utcnow().strftime('%B %d, %Y')}</div>
 </div>
 """
@@ -222,7 +223,7 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
 
         html_parts.append(
             f"""<div class="chapter">
-  <div class="chapter-title">{title}</div>
+  <div class="chapter-title">{escape(title)}</div>
   <div class="chapter-meta">{meta}</div>
   {content_html}
 </div>
@@ -232,10 +233,10 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
     html_parts.append("</body></html>")
     full_html = "\n".join(html_parts)
 
-    filename = f"mck_report_{uuid.uuid4().hex[:8]}.pdf"
+    filename = f"pls_report_{uuid.uuid4().hex[:8]}.pdf"
     filepath = os.path.join(EXPORTS_DIR, filename)
     with open(filepath, "wb") as f:
-        result = pisa.CreatePDF(full_html, dest=f)
+        result = pisa.CreatePDF(full_html.encode("utf-8"), dest=f, encoding="utf-8")
 
     if result.err:
         raise RuntimeError(f"PDF generation failed with {result.err} error(s)")

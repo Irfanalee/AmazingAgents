@@ -53,7 +53,7 @@ export default function Sidebar({ prompts, activePromptId, onSelectPrompt, compl
           letterSpacing: '0.05em',
           textTransform: 'uppercase',
         }}>
-          McKinsey Suite
+          ProductLaunchStrategy Suite
         </div>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
           {completedIds.length}/12 analyses complete

@@ -40,7 +40,7 @@ export default function Layout({ children, title, actions }: LayoutProps) {
             color: 'var(--accent-primary)',
             letterSpacing: '0.04em',
           }}>
-            McKinsey Suite
+            ProductLaunchStrategy Suite
           </span>
         </div>
 
