@@ -84,7 +84,7 @@ export default function Setup() {
             margin: '0 0 8px',
             letterSpacing: '-0.5px',
           }}>
-            ProductLaunchStrategy Suite
+            NPI Strategy Suite
           </h1>
           <p style={{ fontSize: '16px', color: 'var(--text-secondary)', margin: 0 }}>
             12 AI-powered consulting frameworks • Professional-grade market research

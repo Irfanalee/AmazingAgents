@@ -20,7 +20,7 @@ from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
 from .claude_client import stream_analysis
 from .export_service import generate_docx, generate_pdf
 
-app = FastAPI(title="ProductLaunchStrategy Suite", version="1.0.0")
+app = FastAPI(title="NPI Strategy Suite", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,

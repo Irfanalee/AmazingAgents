@@ -63,7 +63,7 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
     doc.add_paragraph()
     title_para = doc.add_paragraph()
     title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title_para.add_run("ProductLaunchStrategy Suite Report")
+    title_run = title_para.add_run("NPI Strategy Suite Report")
     title_run.bold = True
     title_run.font.size = Pt(28)
     title_run.font.color.rgb = RGBColor(0x0A, 0x23, 0x42)
@@ -235,7 +235,7 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
 <style>{_PDF_CSS}</style>
 </head><body>
 <div class="cover">
-  <h1>ProductLaunchStrategy Suite Report</h1>
+  <h1>NPI Suite Report</h1>
   <div class="divider"></div>
   <div class="subtitle">{escape(session_name)}</div>
   <div class="date">Generated: {datetime.utcnow().strftime('%B %d, %Y')}</div>
