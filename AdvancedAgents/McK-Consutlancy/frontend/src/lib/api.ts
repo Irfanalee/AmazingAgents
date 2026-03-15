@@ -86,6 +86,31 @@ export async function fetchCostEstimate(
   return res.data
 }
 
+// ── Batch analysis ────────────────────────────────────────────────
+export interface BatchResult {
+  prompt_id: string
+  output?: string
+  from_cache?: boolean
+  analysis_id?: string
+  input_tokens?: number
+  output_tokens?: number
+  cost_usd?: number
+  error?: string
+}
+
+export async function runBatchAnalysis(
+  apiKey: string,
+  payload: {
+    shared_context: Partial<SharedContext>
+    model?: string
+    session_id?: string | null
+    prompt_ids?: string[]
+  }
+): Promise<{ results: BatchResult[]; total: number; errors: BatchResult[] }> {
+  const res = await client(apiKey).post('/analyze/batch', payload)
+  return res.data
+}
+
 // ── Streaming analysis ────────────────────────────────────────────
 // Returns a fetch Response — caller should read the SSE stream
 export function startAnalysisStream(

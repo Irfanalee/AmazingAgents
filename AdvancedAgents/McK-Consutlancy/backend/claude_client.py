@@ -172,3 +172,51 @@ async def stream_analysis(
         yield f"data: {json.dumps({'type': 'error', 'message': f'Anthropic API error: {str(e)}'})}\n\n"
     except Exception as e:
         yield f"data: {json.dumps({'type': 'error', 'message': f'Unexpected error: {str(e)}'})}\n\n"
+
+
+async def analyze_single(
+    api_key: str,
+    model: str,
+    prompt_id: str,
+    filled_prompt: str,
+    inputs_dict: dict,
+    db: DBSession,
+    session_id: Optional[str] = None,
+) -> dict:
+    cache_key = make_cache_key(model, prompt_id, inputs_dict)
+
+    cached = get_cached_response(db, cache_key)
+    if cached:
+        analysis_id = save_analysis(
+            db, session_id, prompt_id, inputs_dict,
+            cached.response, model,
+            cached.input_tokens, cached.output_tokens, cached.cost_usd,
+            from_cache=True,
+        )
+        return {
+            "prompt_id": prompt_id, "output": cached.response,
+            "from_cache": True, "analysis_id": analysis_id,
+            "input_tokens": cached.input_tokens, "output_tokens": cached.output_tokens,
+            "cost_usd": cached.cost_usd,
+        }
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    msg = await client.messages.create(
+        model=model, max_tokens=4096,
+        messages=[{"role": "user", "content": filled_prompt}],
+    )
+    full_response = msg.content[0].text
+    input_tokens = msg.usage.input_tokens
+    output_tokens = msg.usage.output_tokens
+    cost_usd = estimate_cost(model, input_tokens, output_tokens)
+
+    store_cache(db, cache_key, prompt_id, model, full_response, input_tokens, output_tokens, cost_usd)
+    analysis_id = save_analysis(
+        db, session_id, prompt_id, inputs_dict,
+        full_response, model, input_tokens, output_tokens, cost_usd, from_cache=False,
+    )
+    return {
+        "prompt_id": prompt_id, "output": full_response,
+        "from_cache": False, "analysis_id": analysis_id,
+        "input_tokens": input_tokens, "output_tokens": output_tokens, "cost_usd": cost_usd,
+    }

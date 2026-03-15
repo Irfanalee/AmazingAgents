@@ -41,6 +41,13 @@ class ExportRequest(BaseModel):
     selected_analyses: Optional[List[str]] = None  # prompt_ids to include
 
 
+class BatchAnalyzeRequest(BaseModel):
+    shared_context: SharedContext
+    model: str = "claude-haiku-4-5-20251001"  # Haiku default — 10× cheaper than Sonnet
+    session_id: Optional[str] = None
+    prompt_ids: Optional[List[str]] = None    # None = run all 12
+
+
 # Model pricing per million tokens (input, output)
 MODEL_PRICING = {
     "claude-opus-4-6": (15.0, 75.0),

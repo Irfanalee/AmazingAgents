@@ -1,23 +1,27 @@
+import asyncio
 import json
 import uuid
+from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session as DBSession
 
 from .database import (
     init_db,
     get_db,
+    SessionLocal,
     Session as SessionModel,
     Analysis as AnalysisModel,
     Cache as CacheModel,
 )
-from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, estimate_cost
+from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, BatchAnalyzeRequest, estimate_cost
 from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
-from .claude_client import stream_analysis
+from .claude_client import stream_analysis, analyze_single
 from .export_service import generate_docx, generate_pdf
 
 app = FastAPI(title="NPI Strategy Suite", version="1.0.0")
@@ -118,6 +122,42 @@ async def analyze_stream(
             "Connection": "keep-alive",
         },
     )
+
+
+@app.post("/api/analyze/batch")
+async def analyze_batch(
+    request: BatchAnalyzeRequest,
+    x_api_key: Optional[str] = Header(None),
+):
+    if not x_api_key:
+        raise HTTPException(400, "X-API-Key header required")
+
+    target_ids = request.prompt_ids or [p["id"] for p in get_all_prompts()]
+
+    async def run_one(prompt_id: str) -> dict:
+        filled = fill_prompt(prompt_id, request.shared_context, {})
+        if not filled:
+            return {"prompt_id": prompt_id, "error": "Prompt not found"}
+        inputs_dict = {"shared_context": request.shared_context.model_dump(), "extra_inputs": {}}
+        db = SessionLocal()
+        try:
+            return await analyze_single(
+                api_key=x_api_key, model=request.model,
+                prompt_id=prompt_id, filled_prompt=filled,
+                inputs_dict=inputs_dict, db=db,
+                session_id=request.session_id,
+            )
+        except Exception as e:
+            return {"prompt_id": prompt_id, "error": str(e)}
+        finally:
+            db.close()
+
+    results = await asyncio.gather(*[run_one(pid) for pid in target_ids])
+    return {
+        "results": list(results),
+        "total": len(results),
+        "errors": [r for r in results if "error" in r],
+    }
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────────
@@ -340,3 +380,13 @@ def clear_cache(db: DBSession = Depends(get_db)):
     db.query(CacheModel).delete()
     db.commit()
     return {"ok": True}
+
+
+# ── Static frontend (built UI) ────────────────────────────────────────────────
+# Mount after all API routes so /api/* is never shadowed.
+# Serve index.html for any path the React router owns.
+
+_dist = Path(__file__).parent.parent / "frontend" / "dist"
+
+if _dist.exists():
+    app.mount("/", StaticFiles(directory=str(_dist), html=True), name="static")

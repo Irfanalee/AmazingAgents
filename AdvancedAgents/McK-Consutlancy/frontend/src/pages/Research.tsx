@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App'
 import { useSession } from '../hooks/useSession'
-import { fetchPrompts } from '../lib/api'
+import { fetchPrompts, runBatchAnalysis } from '../lib/api'
 import Sidebar from '../components/Sidebar'
 import SharedContextPanel from '../components/SharedContextPanel'
 import AnalysisTab from '../components/AnalysisTab'
@@ -18,6 +18,8 @@ export default function Research() {
   const [activePromptId, setActivePromptId] = useState<string | null>(null)
   const [showExport, setShowExport] = useState<boolean>(false)
   const [sessionName, setSessionName] = useState<string>('')
+  const [batchRunning, setBatchRunning] = useState(false)
+  const [batchMsg, setBatchMsg] = useState('')
 
   const { session, analyses, loading: _loading, addAnalysis, ensureSession, syncContext } = useSession(
     sessionId,
@@ -58,6 +60,40 @@ export default function Research() {
   async function handleContextSave(ctx: Partial<SharedContext>) {
     await ensureSession(ctx, _theme)
     await syncContext(ctx)
+  }
+
+  async function handlePreFillAll() {
+    if (!apiKey || batchRunning) return
+    setBatchRunning(true)
+    setBatchMsg('Running all 12 analyses with Haiku…')
+    try {
+      const sid = await ensureSession(sharedContext, _theme)
+      const { results, errors } = await runBatchAnalysis(apiKey, {
+        shared_context: sharedContext,
+        model: 'claude-haiku-4-5-20251001',
+        session_id: sid,
+      })
+      for (const r of results) {
+        if (!r.error && r.output) {
+          addAnalysis(r.prompt_id, {
+            prompt_id: r.prompt_id,
+            output: r.output,
+            from_cache: r.from_cache ?? false,
+            input_tokens: r.input_tokens,
+            output_tokens: r.output_tokens,
+            cost_usd: r.cost_usd,
+          })
+        }
+      }
+      setBatchMsg(errors.length > 0
+        ? `${results.length - errors.length}/${results.length} complete (${errors.length} failed)`
+        : `All ${results.length} analyses complete ✓`)
+    } catch (e) {
+      setBatchMsg('Batch failed — check console')
+      console.error(e)
+    } finally {
+      setBatchRunning(false)
+    }
   }
 
   async function handleAnalysisComplete(promptId: string, analysisData: StoredAnalysis) {
@@ -108,6 +144,18 @@ export default function Research() {
               ? `📁 ${session?.name || sharedContext.business_name}`
               : '📁 New Research Session'}
           </span>
+
+          <button
+            className={batchRunning ? 'theme-btn-secondary' : 'theme-btn-primary'}
+            onClick={handlePreFillAll}
+            disabled={batchRunning || !sharedContext?.business_name}
+            style={{ fontSize: '12px', padding: '6px 14px' }}
+          >
+            {batchRunning ? '⏳ Pre-filling…' : '⚡ Pre-fill All'}
+          </button>
+          {batchMsg && (
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{batchMsg}</span>
+          )}
 
           <button
             className="theme-btn-secondary"
