@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 import anthropic
 from sqlalchemy.orm import Session as DBSession
 
-from .database import Cache, Analysis
+from .database import Cache, Analysis, FeedbackMessage
 from .models import estimate_cost
 
 CACHE_TTL_DAYS = 7
@@ -163,6 +163,92 @@ async def stream_analysis(
         )
 
         yield f"data: {json.dumps({'type': 'done', 'analysis_id': analysis_id, 'from_cache': False, 'input_tokens': input_tokens, 'output_tokens': output_tokens, 'cost_usd': cost_usd})}\n\n"
+
+    except anthropic.AuthenticationError:
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid API key. Please check your Anthropic API key.'})}\n\n"
+    except anthropic.RateLimitError:
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Rate limit exceeded. Please wait a moment and try again.'})}\n\n"
+    except anthropic.APIError as e:
+        yield f"data: {json.dumps({'type': 'error', 'message': f'Anthropic API error: {str(e)}'})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'type': 'error', 'message': f'Unexpected error: {str(e)}'})}\n\n"
+
+
+async def stream_feedback(
+    api_key: str,
+    model: str,
+    analysis_id: str,
+    current_analysis: str,
+    new_message: str,
+    db: DBSession,
+) -> AsyncGenerator[str, None]:
+    """Stream a revised analysis based on user feedback, then persist both messages."""
+    system_prompt = (
+        "You are a McKinsey-grade strategic analyst. "
+        "The user is providing feedback or corrections to their analysis. "
+        "Incorporate all feedback and return a complete, professionally revised analysis "
+        "in exactly the same format and structure as the original. "
+        "If numbers or assumptions are corrected, update all dependent calculations and projections."
+    )
+
+    messages = [{
+        "role": "user",
+        "content": (
+            f"Here is my current analysis:\n\n{current_analysis}\n\n"
+            f"---\n\n"
+            f"Feedback/Corrections: {new_message}\n\n"
+            f"Please revise the analysis to incorporate this feedback. "
+            f"Return the complete revised analysis."
+        ),
+    }]
+
+    full_response = ""
+    input_tokens = 0
+    output_tokens = 0
+
+    try:
+        client = anthropic.AsyncAnthropic(api_key=api_key)
+
+        async with client.messages.stream(
+            model=model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                full_response += text
+                yield f"data: {json.dumps({'type': 'text', 'text': text})}\n\n"
+
+            final_msg = await stream.get_final_message()
+            input_tokens = final_msg.usage.input_tokens
+            output_tokens = final_msg.usage.output_tokens
+
+        cost_usd = estimate_cost(model, input_tokens, output_tokens)
+
+        # Persist user feedback message
+        db.add(FeedbackMessage(
+            id=str(uuid.uuid4()),
+            analysis_id=analysis_id,
+            role="user",
+            content=new_message,
+        ))
+
+        # Persist assistant revision
+        db.add(FeedbackMessage(
+            id=str(uuid.uuid4()),
+            analysis_id=analysis_id,
+            role="assistant",
+            content=full_response,
+        ))
+
+        # Update the analysis record with the revised output
+        analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if analysis:
+            analysis.output = full_response
+
+        db.commit()
+
+        yield f"data: {json.dumps({'type': 'done', 'input_tokens': input_tokens, 'output_tokens': output_tokens, 'cost_usd': cost_usd})}\n\n"
 
     except anthropic.AuthenticationError:
         yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid API key. Please check your Anthropic API key.'})}\n\n"

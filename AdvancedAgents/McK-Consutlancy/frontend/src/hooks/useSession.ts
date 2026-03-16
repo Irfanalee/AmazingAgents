@@ -22,7 +22,15 @@ export function useSession(
       // Build map from prompt_id → latest analysis
       const map: Record<string, StoredAnalysis> = {}
       for (const a of (data.analyses || [])) {
-        map[a.prompt_id] = a
+        map[a.prompt_id] = {
+          prompt_id: a.prompt_id,
+          output: a.output,
+          from_cache: a.from_cache,
+          input_tokens: a.input_tokens,
+          output_tokens: a.output_tokens,
+          cost_usd: a.cost_usd,
+          analysis_id: a.id,
+        }
       }
       setAnalyses(map)
     } catch (err) {

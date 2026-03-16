@@ -1,5 +1,5 @@
 import axios, { type AxiosResponse } from 'axios'
-import type { Prompt, Session, Analysis, CacheStats, SharedContext } from '../types'
+import type { Prompt, Session, Analysis, CacheStats, SharedContext, FeedbackMessage } from '../types'
 
 const BASE = '/api'
 
@@ -109,6 +109,30 @@ export async function runBatchAnalysis(
 ): Promise<{ results: BatchResult[]; total: number; errors: BatchResult[] }> {
   const res = await client(apiKey).post('/analyze/batch', payload)
   return res.data
+}
+
+// ── Feedback / refinement ─────────────────────────────────────────
+export async function fetchFeedbackHistory(
+  apiKey: string,
+  analysisId: string
+): Promise<FeedbackMessage[]> {
+  const res = await client(apiKey).get<FeedbackMessage[]>(`/analyses/${analysisId}/feedback`)
+  return res.data
+}
+
+export function startFeedbackStream(
+  apiKey: string,
+  analysisId: string,
+  payload: { message: string; model: string }
+): Promise<Response> {
+  return fetch(`${BASE}/analyses/${analysisId}/feedback/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify(payload),
+  })
 }
 
 // ── Streaming analysis ────────────────────────────────────────────

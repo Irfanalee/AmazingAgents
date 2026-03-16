@@ -51,6 +51,15 @@ class Cache(Base):
     hit_count = Column(Integer, default=0)
 
 
+class FeedbackMessage(Base):
+    __tablename__ = "feedback_messages"
+    id = Column(String, primary_key=True)
+    analysis_id = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # "user" or "assistant"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

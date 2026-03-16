@@ -18,10 +18,11 @@ from .database import (
     Session as SessionModel,
     Analysis as AnalysisModel,
     Cache as CacheModel,
+    FeedbackMessage as FeedbackMessageModel,
 )
-from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, BatchAnalyzeRequest, estimate_cost
+from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, BatchAnalyzeRequest, FeedbackRequest, estimate_cost
 from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
-from .claude_client import stream_analysis, analyze_single
+from .claude_client import stream_analysis, analyze_single, stream_feedback
 from .export_service import generate_docx, generate_pdf
 
 app = FastAPI(title="NPI Strategy Suite", version="1.0.0")
@@ -158,6 +159,68 @@ async def analyze_batch(
         "total": len(results),
         "errors": [r for r in results if "error" in r],
     }
+
+
+# ── Feedback / refinement ─────────────────────────────────────────────────────
+
+@app.get("/api/analyses/{analysis_id}/feedback")
+def get_feedback_history(analysis_id: str, db: DBSession = Depends(get_db)):
+    analysis = db.query(AnalysisModel).filter(AnalysisModel.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(404, "Analysis not found")
+    messages = (
+        db.query(FeedbackMessageModel)
+        .filter(FeedbackMessageModel.analysis_id == analysis_id)
+        .order_by(FeedbackMessageModel.created_at)
+        .all()
+    )
+    return [
+        {
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "created_at": m.created_at.isoformat(),
+        }
+        for m in messages
+    ]
+
+
+@app.post("/api/analyses/{analysis_id}/feedback/stream")
+async def feedback_stream(
+    analysis_id: str,
+    request: FeedbackRequest,
+    x_api_key: Optional[str] = Header(None),
+    db: DBSession = Depends(get_db),
+):
+    if not x_api_key:
+        raise HTTPException(400, "X-API-Key header required")
+
+    analysis = db.query(AnalysisModel).filter(AnalysisModel.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(404, "Analysis not found")
+    if not analysis.output:
+        raise HTTPException(400, "Analysis has no output to refine")
+
+    async def event_generator():
+        async for chunk in stream_feedback(
+            api_key=x_api_key,
+            model=request.model,
+            analysis_id=analysis_id,
+            current_analysis=analysis.output,
+            new_message=request.message,
+            db=db,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ── Sessions ──────────────────────────────────────────────────────────────────

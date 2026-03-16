@@ -52,6 +52,7 @@ export default function Research() {
             input_tokens: analyses[p.id].input_tokens,
             output_tokens: analyses[p.id].output_tokens,
             cost_usd: analyses[p.id].cost_usd,
+            analysis_id: analyses[p.id].analysis_id,
           }
         : null,
     }
@@ -82,6 +83,7 @@ export default function Research() {
             input_tokens: r.input_tokens,
             output_tokens: r.output_tokens,
             cost_usd: r.cost_usd,
+            analysis_id: r.analysis_id,
           })
         }
       }

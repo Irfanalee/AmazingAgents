@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useApp } from '../App'
 import { useAnalysis } from '../hooks/useAnalysis'
 import OutputRenderer from './OutputRenderer'
+import FeedbackPanel from './FeedbackPanel'
 import { formatCost, formatTokens } from '../lib/utils'
 import { fetchCostEstimate } from '../lib/api'
 import type { Prompt, StoredAnalysis, AnalysisMeta } from '../types'
@@ -23,10 +24,23 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
   // Restore previous output if passed in
   const [savedOutput, setSavedOutput] = useState<string>(prompt.existingOutput || '')
   const [savedMeta, setSavedMeta] = useState<AnalysisMeta | null>(prompt.existingMeta || null)
+  // Live feedback streaming output — replaces savedOutput while feedback is in progress
+  const [feedbackOutput, setFeedbackOutput] = useState<string>('')
 
-  const displayOutput = output || savedOutput
+  const displayOutput = output || feedbackOutput || savedOutput
   const displayMeta = meta || savedMeta
   const isRunning = status === 'loading' || status === 'streaming'
+
+  const analysisId = savedMeta?.analysis_id ?? null
+
+  const handleFeedbackChunk = useCallback((accumulated: string) => {
+    setFeedbackOutput(accumulated)
+  }, [])
+
+  const handleFeedbackDone = useCallback((finalOutput: string) => {
+    setSavedOutput(finalOutput)
+    setFeedbackOutput('')
+  }, [])
 
   // Auto-scroll output while streaming
   useEffect(() => {
@@ -255,6 +269,16 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
             isStreaming={status === 'streaming'}
           />
         </div>
+      )}
+
+      {/* Feedback panel — shown when analysis exists and has an ID */}
+      {analysisId && !isRunning && (
+        <FeedbackPanel
+          analysisId={analysisId}
+          onOutputChunk={handleFeedbackChunk}
+          onOutputDone={handleFeedbackDone}
+          disabled={isRunning}
+        />
       )}
 
       {/* Empty state */}

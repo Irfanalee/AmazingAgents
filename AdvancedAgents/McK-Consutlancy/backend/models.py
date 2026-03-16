@@ -41,6 +41,11 @@ class ExportRequest(BaseModel):
     selected_analyses: Optional[List[str]] = None  # prompt_ids to include
 
 
+class FeedbackRequest(BaseModel):
+    message: str
+    model: str = "claude-sonnet-4-6"
+
+
 class BatchAnalyzeRequest(BaseModel):
     shared_context: SharedContext
     model: str = "claude-haiku-4-5-20251001"  # Haiku default — 10× cheaper than Sonnet

@@ -75,6 +75,13 @@ export interface Session {
   analyses?: Analysis[]
 }
 
+export interface FeedbackMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  created_at: string
+}
+
 export interface CacheStats {
   total_entries: number
   total_hits: number
