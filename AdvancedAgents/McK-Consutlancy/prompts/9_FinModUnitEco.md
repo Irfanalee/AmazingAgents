@@ -16,5 +16,6 @@ Unit economics breakdown:
 • Key assumptions table with justification for each assumption
 • Benchmark comparison: How do my metrics compare to industry standards
 • Red flags: What numbers should worry me and trigger action
+• State the source of your financial numbers in each section. 
 Format as a financial model summary with clear tables and formulas.
 My business: [DESCRIBE BUSINESS MODEL, CURRENT REVENUE, COSTS, GROWTH RATE]
