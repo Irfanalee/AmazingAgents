@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App'
 import { useSession } from '../hooks/useSession'
-import { fetchPrompts, runBatchAnalysis } from '../lib/api'
+import { fetchPrompts, runBatchAnalysis, updateSession } from '../lib/api'
 import Sidebar from '../components/Sidebar'
 import SharedContextPanel from '../components/SharedContextPanel'
 import AnalysisTab from '../components/AnalysisTab'
@@ -11,7 +11,7 @@ import ExportModal from '../components/ExportModal'
 import type { Prompt, StoredAnalysis, SharedContext } from '../types'
 
 export default function Research() {
-  const { apiKey, sessionId, setSessionId, sharedContext, theme: _theme } = useApp()
+  const { apiKey, sessionId, setSessionId, sharedContext, setSharedContext, theme: _theme } = useApp()
   const navigate = useNavigate()
 
   const [prompts, setPrompts] = useState<Prompt[]>([])
@@ -41,6 +41,16 @@ export default function Research() {
 
   const completedIds = Object.keys(analyses)
 
+  // Detect when the user has typed a different company name on an existing session
+  const sessionBusinessName = (session?.shared_context as Partial<SharedContext> | undefined)?.business_name
+  const currentBusinessName = sharedContext?.business_name
+  const companyChanged =
+    !!sessionId &&
+    completedIds.length > 0 &&
+    !!sessionBusinessName &&
+    !!currentBusinessName &&
+    currentBusinessName.trim().toLowerCase() !== sessionBusinessName.trim().toLowerCase()
+
   // Enrich each prompt with its existing analysis data
   function enrichPrompt(p: Prompt): Prompt {
     return {
@@ -61,6 +71,23 @@ export default function Research() {
   async function handleContextSave(ctx: Partial<SharedContext>) {
     await ensureSession(ctx, _theme)
     await syncContext(ctx)
+  }
+
+  async function handleNewResearch() {
+    // Persist current session name if it was derived from business name
+    if (sessionId && sharedContext?.business_name) {
+      try {
+        await updateSession(sessionId, {
+          name: `${sharedContext.business_name} — Research`,
+          shared_context: sharedContext as SharedContext,
+        })
+      } catch {
+        // session save failed — still proceed with fresh start
+      }
+    }
+    // Clear active session and context → fresh slate
+    setSessionId(null)
+    setSharedContext({})
   }
 
   async function handlePreFillAll() {
@@ -141,11 +168,20 @@ export default function Research() {
           gap: '12px',
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1 }}>
+          <span style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {session?.name || sharedContext?.business_name
               ? `📁 ${session?.name || sharedContext.business_name}`
               : '📁 New Research Session'}
           </span>
+
+          <button
+            className="theme-btn-secondary"
+            onClick={handleNewResearch}
+            title="Save current session and start a fresh research"
+            style={{ fontSize: '12px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
+          >
+            ＋ New Research
+          </button>
 
           <button
             className={batchRunning ? 'theme-btn-secondary' : 'theme-btn-primary'}
@@ -164,7 +200,7 @@ export default function Research() {
             onClick={() => navigate('/history')}
             style={{ fontSize: '12px', padding: '5px 10px' }}
           >
-            History
+            📚 Library
           </button>
 
           <button
@@ -190,6 +226,41 @@ export default function Research() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left: analysis content */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {/* Company-changed banner */}
+            {companyChanged && (
+              <div style={{
+                background: 'color-mix(in srgb, #f59e0b 12%, var(--bg-card))',
+                border: '1px solid color-mix(in srgb, #f59e0b 40%, transparent)',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                fontSize: '13px',
+                color: '#fcd34d',
+              }}>
+                <span>⚠️</span>
+                <span style={{ flex: 1 }}>
+                  This looks like a different company from the current session (<strong>{sessionBusinessName}</strong>).
+                </span>
+                <button
+                  className="theme-btn-primary"
+                  onClick={handleNewResearch}
+                  style={{ fontSize: '12px', padding: '5px 12px', flexShrink: 0 }}
+                >
+                  Start New Research
+                </button>
+                <button
+                  onClick={() => setSharedContext(prev => ({ ...prev, business_name: sessionBusinessName ?? '' }))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fcd34d', fontSize: '18px', lineHeight: 1, padding: '0 2px' }}
+                  title="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
             <SharedContextPanel onSave={handleContextSave} />
 
             {/* Render all tabs but only show the active one — keeps hooks/streams alive on tab switch */}
