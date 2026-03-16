@@ -251,6 +251,16 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
         </div>
       )}
 
+      {/* Feedback panel — shown whenever there is output */}
+      {displayOutput && !isRunning && (
+        <FeedbackPanel
+          analysisId={analysisId}
+          onOutputChunk={handleFeedbackChunk}
+          onOutputDone={handleFeedbackDone}
+          disabled={isRunning}
+        />
+      )}
+
       {/* Output */}
       {displayOutput && (
         <div
@@ -269,16 +279,6 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
             isStreaming={status === 'streaming'}
           />
         </div>
-      )}
-
-      {/* Feedback panel — shown when analysis exists and has an ID */}
-      {analysisId && !isRunning && (
-        <FeedbackPanel
-          analysisId={analysisId}
-          onOutputChunk={handleFeedbackChunk}
-          onOutputDone={handleFeedbackDone}
-          disabled={isRunning}
-        />
       )}
 
       {/* Empty state */}

@@ -5,7 +5,7 @@ import { fetchFeedbackHistory } from '../lib/api'
 import type { FeedbackMessage } from '../types'
 
 interface FeedbackPanelProps {
-  analysisId: string
+  analysisId: string | null
   /** Called with each streamed chunk so the parent output pane shows live updates */
   onOutputChunk: (accumulated: string) => void
   /** Called with the final revised output when streaming completes */
@@ -29,11 +29,10 @@ export default function FeedbackPanel({
 
   const { status, error, send, stop } = useFeedback(
     apiKey,
-    analysisId,
+    analysisId,          // hook guards internally against null
     onOutputChunk,
     (finalOutput) => {
       onOutputDone(finalOutput)
-      // Reload history to show the new exchange
       loadHistory()
     },
   )
@@ -244,11 +243,17 @@ export default function FeedbackPanel({
                 <button
                   className="theme-btn-primary"
                   onClick={handleSend}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || !analysisId}
+                  title={!analysisId ? 'Regenerate the analysis to enable feedback' : undefined}
                   style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   Revise Analysis
                 </button>
+              )}
+              {!analysisId && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Regenerate to enable
+                </span>
               )}
 
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
