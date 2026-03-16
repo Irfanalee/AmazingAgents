@@ -20,6 +20,7 @@ export default function Research() {
   const [sessionName, setSessionName] = useState<string>('')
   const [batchRunning, setBatchRunning] = useState(false)
   const [batchMsg, setBatchMsg] = useState('')
+  const [batchErrors, setBatchErrors] = useState<{ prompt_id: string; error: string }[]>([])
 
   const { session, analyses, loading: _loading, addAnalysis, ensureSession, syncContext } = useSession(
     sessionId,
@@ -94,6 +95,7 @@ export default function Research() {
     if (!apiKey || batchRunning) return
     setBatchRunning(true)
     setBatchMsg('Running all 12 analyses with Haiku…')
+    setBatchErrors([])
     try {
       const sid = await ensureSession(sharedContext, _theme)
       const { results, errors } = await runBatchAnalysis(apiKey, {
@@ -114,12 +116,15 @@ export default function Research() {
           })
         }
       }
-      setBatchMsg(errors.length > 0
-        ? `${results.length - errors.length}/${results.length} complete (${errors.length} failed)`
-        : `All ${results.length} analyses complete ✓`)
+      if (errors.length > 0) {
+        setBatchMsg(`${results.length - errors.length}/${results.length} complete — ${errors.length} failed`)
+        setBatchErrors(errors.map(e => ({ prompt_id: e.prompt_id, error: e.error ?? 'Unknown error' })))
+      } else {
+        setBatchMsg(`All ${results.length} analyses complete ✓`)
+      }
     } catch (e) {
-      setBatchMsg('Batch failed — check console')
-      console.error(e)
+      setBatchMsg('Batch failed')
+      setBatchErrors([{ prompt_id: 'all', error: e instanceof Error ? e.message : String(e) }])
     } finally {
       setBatchRunning(false)
     }
@@ -192,7 +197,9 @@ export default function Research() {
             {batchRunning ? '⏳ Pre-filling…' : '⚡ Pre-fill All'}
           </button>
           {batchMsg && (
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{batchMsg}</span>
+            <span style={{ fontSize: '11px', color: batchErrors.length > 0 ? '#fca5a5' : 'var(--text-muted)' }}>
+              {batchMsg}
+            </span>
           )}
 
           <button
@@ -221,6 +228,44 @@ export default function Research() {
             </button>
           )}
         </div>
+
+        {/* Batch error banner */}
+        {batchErrors.length > 0 && (
+          <div style={{
+            background: 'color-mix(in srgb, #ef4444 10%, var(--bg-secondary))',
+            borderBottom: '1px solid color-mix(in srgb, #ef4444 30%, transparent)',
+            padding: '10px 20px',
+            flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#fca5a5' }}>
+                ⚠️ {batchErrors.length} framework{batchErrors.length > 1 ? 's' : ''} failed to generate
+              </span>
+              <button
+                onClick={() => setBatchErrors([])}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fca5a5', fontSize: '16px', lineHeight: 1, marginLeft: 'auto' }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {batchErrors.map((e, i) => {
+                const promptName = prompts.find(p => p.id === e.prompt_id)?.title || e.prompt_id
+                return (
+                  <div key={i} style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
+                    <span
+                      style={{ color: '#fca5a5', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', flexShrink: 0 }}
+                      onClick={() => setActivePromptId(e.prompt_id)}
+                    >
+                      {promptName}
+                    </span>
+                    <span style={{ color: '#f87171', opacity: 0.85 }}>{e.error}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Content area */}
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
