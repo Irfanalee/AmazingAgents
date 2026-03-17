@@ -17,7 +17,7 @@ Display this improvement catalog and help me choose what to implement next.
 ## Medium Effort
 
 - **H** Structured logging (replace all `print()`) — `backend/claude_client.py`, `backend/main.py`, `backend/export_service.py`
-- **I** Fix cost-estimate race condition (no AbortController) — `frontend/src/components/AnalysisTab.tsx` ~line 76
+- **I** ~~Fix cost-estimate race condition (no AbortController)~~ ✓ (done)
 - **J** N+1 query fix on sessions list — `backend/main.py` ~line 231
 - **K** Database indexes on `session_id`, `prompt_id`, `created_at` — `backend/database.py`
 - **L** Silent SSE parse errors surfaced to user — `frontend/src/hooks/useAnalysis.ts` ~line 60
@@ -29,7 +29,7 @@ Display this improvement catalog and help me choose what to implement next.
 - **O** Alembic DB migrations
 - **P** Retry + exponential backoff for Claude API calls
 - **Q** Analysis comparison view (diff two runs of same framework)
-- **R** Prompt quality improvements (thin prompts: TAM, SWOT+P5F)
+- **R** ~~Prompt quality improvements (thin prompts: TAM, SWOT+P5F)~~ ✓ (done)
 
 ---
 

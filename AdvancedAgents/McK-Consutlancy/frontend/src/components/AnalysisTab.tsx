@@ -79,6 +79,7 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
   // Fetch cost estimate whenever model or extra inputs change
   useEffect(() => {
     if (!apiKey) return
+    const controller = new AbortController()
     const timer = setTimeout(async () => {
       try {
         const result = await fetchCostEstimate(apiKey, {
@@ -86,13 +87,16 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
           shared_context: sharedContext,
           extra_inputs: extraInputs,
           model,
-        })
+        }, controller.signal)
         setCostEstimate(result.cost_usd_estimate)
       } catch {
         setCostEstimate(null)
       }
     }, 400)
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
   }, [model, extraInputs, prompt.id])
 
   async function handleGenerate() {

@@ -80,9 +80,10 @@ export interface CostEstimate {
 
 export async function fetchCostEstimate(
   apiKey: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<CostEstimate> {
-  const res = await client(apiKey).post<CostEstimate>('/analyze/estimate', payload)
+  const res = await client(apiKey).post<CostEstimate>('/analyze/estimate', payload, { signal })
   return res.data
 }
 
