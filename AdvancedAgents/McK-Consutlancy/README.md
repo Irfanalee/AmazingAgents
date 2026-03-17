@@ -1,6 +1,6 @@
 # McKinsey Research Suite
 
-An AI-powered consulting toolkit that runs 12 McKinsey-grade market research frameworks against your business — powered by Claude and built with a FastAPI backend + React frontend.
+An AI-powered consulting toolkit that runs 12 McKinsey-grade strategic frameworks against your business — powered by Claude and built with a FastAPI backend + React frontend.
 
 ---
 
@@ -36,7 +36,7 @@ An AI-powered consulting toolkit that runs 12 McKinsey-grade market research fra
 
 ---
 
-## Quick Start (automated)
+## Quick Start
 
 ```bash
 bash setup.sh
@@ -66,84 +66,97 @@ Open **http://localhost:5173** in your browser.
 cd McK-Consutlancy
 ```
 
-### 2. Install Python dependencies
+### 2. Configure environment (optional)
+
+```bash
+cp .env.example .env
+# Edit .env if you want server-side defaults
+```
+
+The API key can also be entered directly in the UI — it is stored in `localStorage` only and never sent to any server except Anthropic's API.
+
+### 3. Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> On some systems use `pip3` instead of `pip`.
-
-### 3. Install Node dependencies
+### 4. Install Node dependencies
 
 ```bash
-cd frontend
-npm install
-cd ..
+cd frontend && npm install && cd ..
 ```
 
-### 4. Create required directories
+### 5. Create required directories
 
 ```bash
 mkdir -p data exports
 ```
 
-### 5. Start the backend
+### 6. Start the backend
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-The API will be available at **http://localhost:8000**. You can explore the auto-generated docs at http://localhost:8000/docs.
+API available at **http://localhost:8000** · Interactive docs at http://localhost:8000/docs
 
-### 6. Start the frontend
+### 7. Start the frontend
 
 ```bash
-cd frontend
-npm run dev
+cd frontend && npm run dev
 ```
 
-The app will be available at **http://localhost:5173**.
+App available at **http://localhost:5173**
 
 ---
 
 ## First Run
 
 1. Open **http://localhost:5173**
-2. Enter your Anthropic API key on the Setup page — stored locally only, never sent to any server except Anthropic's API
-3. Fill in your **Business Context** (Business Name, Industry, Stage, etc.) — this auto-populates all 12 analysis prompts
+2. Enter your Anthropic API key — use the **Test** button to validate it before proceeding
+3. Fill in your **Business Context** (Business Name, Industry, Stage, etc.) — auto-populates all 12 analysis prompts
 4. Choose a UI theme (McKinsey Dark / Premium White / Data Dashboard)
 5. Click **Launch Research Suite**
-6. Select any of the 12 frameworks from the sidebar and click **Generate Analysis**
+6. Select any framework from the sidebar and click **Generate Analysis**
+7. Use **⚡ Pre-fill All** in the top bar to run all 12 frameworks in batch using Haiku (fast + cheap)
 
 ---
 
 ## The 12 Analysis Frameworks
 
-| # | Framework |
-|---|---|
-| 0 | Executive Strategy Master |
-| 1 | TAM / SAM / SOM Analysis |
-| 2 | Competitive Landscape |
-| 3 | Customer Personas |
-| 4 | Industry Trend Analysis |
-| 5 | SWOT + Porter's Five Forces |
-| 6 | Pricing Strategy Analysis |
-| 7 | Go-to-Market Strategy |
-| 8 | Customer Journey Mapping |
-| 9 | Financial Model & Unit Economics |
-| 10 | Risk Assessment & Scenario Planning |
-| 11 | Market Entry & Expansion |
+| # | Framework | What you get |
+|---|---|---|
+| 0 | Executive Strategy Master | Full strategic overview — vision, positioning, priorities |
+| 1 | TAM / SAM / SOM Analysis | Top-down + bottom-up market sizing with CAGR scenarios |
+| 2 | Competitive Landscape | Competitor matrix, positioning map, differentiation strategy |
+| 3 | Customer Personas | 3–5 detailed ICPs with jobs-to-be-done and buying triggers |
+| 4 | Industry Trend Analysis | Macro forces, disruption signals, 3-year outlook |
+| 5 | SWOT + Porter's Five Forces | Cross-analysis matrix + industry attractiveness score + strategic imperatives |
+| 6 | Pricing Strategy Analysis | Pricing model options, elasticity, competitive benchmarks |
+| 7 | Go-to-Market Strategy | Channel mix, messaging, launch sequencing |
+| 8 | Customer Journey Mapping | Touchpoint analysis, friction points, conversion optimisation |
+| 9 | Financial Model & Unit Economics | Revenue projections, CAC/LTV, break-even analysis |
+| 10 | Risk Assessment & Scenario Planning | Risk register, likelihood/impact matrix, mitigation playbook |
+| 11 | Market Entry & Expansion | Entry strategy, localisation requirements, partnership options |
 
 ---
 
 ## Features
 
-- **Streaming output** — results stream in real time via SSE
-- **Response caching** — identical requests return instantly with a "Cached" badge and cost savings estimate
-- **Session history** — save, resume, and manage research sessions
-- **Export** — download completed analyses as a formatted Word (`.docx`) or PDF report
-- **3 UI themes** — switchable at any time without losing state
+| Feature | Details |
+|---|---|
+| **Real-time streaming** | Results stream token-by-token via SSE with a live stop button |
+| **API key validation** | Test button on Setup page — instant green/red feedback before you run anything |
+| **Response caching** | Identical requests return instantly with a "⚡ Cached" badge; 7-day TTL |
+| **Cost estimates** | Pre-generation cost estimate shown per framework; race-condition safe |
+| **Batch pre-fill** | Run all 12 frameworks in one click (Haiku model); success toast auto-clears |
+| **AI feedback & refinement** | Ask follow-up questions on any output — streamed inline |
+| **Session history** | Save, resume, rename, and delete research sessions |
+| **Export** | Download selected analyses as a formatted Word (`.docx`) or PDF report |
+| **Generated-at timestamp** | Each output shows the time it was generated in the metadata bar |
+| **3 UI themes** | McKinsey Dark, Premium White, Data Dashboard — switchable without losing state |
+| **Keyboard shortcuts** | Escape closes modals |
 
 ---
 
@@ -152,25 +165,38 @@ The app will be available at **http://localhost:5173**.
 ```
 McK-Consutlancy/
 ├── backend/
-│   ├── main.py              # FastAPI app + API routes
-│   ├── claude_client.py     # Anthropic streaming client
-│   ├── database.py          # SQLAlchemy models + SQLite setup
-│   ├── models.py            # Pydantic request/response schemas
-│   ├── prompt_manager.py    # Loads prompts from /prompts/*.md
+│   ├── main.py              # FastAPI app + 11 API routes
+│   ├── claude_client.py     # Anthropic streaming client + 7-day SHA-256 cache
+│   ├── database.py          # SQLAlchemy models: Session, Analysis, Cache, FeedbackMessage
+│   ├── models.py            # Pydantic schemas + per-model cost estimation
+│   ├── prompt_manager.py    # Loads/fills prompts from /prompts/*.md
 │   └── export_service.py    # DOCX + PDF generation
 ├── frontend/
-│   ├── src/
-│   │   ├── types.ts         # Shared TypeScript interfaces
-│   │   ├── App.tsx          # Root + AppContext provider
-│   │   ├── hooks/           # useAnalysis, useSession
-│   │   ├── lib/             # api.ts, utils.ts
-│   │   ├── components/      # Sidebar, AnalysisTab, OutputRenderer, …
-│   │   └── pages/           # Setup, Research, History
-│   ├── tsconfig.json
-│   └── vite.config.ts
+│   └── src/
+│       ├── types.ts         # Shared TypeScript interfaces
+│       ├── App.tsx          # Root component + AppContext provider
+│       ├── hooks/
+│       │   ├── useAnalysis.ts   # SSE streaming state + AbortController
+│       │   └── useSession.ts    # Session loading + analysis map
+│       ├── lib/
+│       │   ├── api.ts       # Axios + fetch wrappers for all endpoints
+│       │   └── utils.ts     # formatCost, formatTokens, downloadBlob
+│       ├── components/
+│       │   ├── AnalysisTab.tsx   # Per-framework tab: generate, stream, feedback
+│       │   ├── OutputRenderer.tsx
+│       │   ├── FeedbackPanel.tsx
+│       │   ├── ExportModal.tsx   # Escape-to-close, format + selection picker
+│       │   ├── Sidebar.tsx
+│       │   ├── CostTracker.tsx
+│       │   └── ThemeToggle.tsx
+│       └── pages/
+│           ├── Setup.tsx        # API key (with Test button) + business context
+│           ├── Research.tsx     # Main workspace
+│           └── History.tsx      # Session library
 ├── prompts/                 # 12 Markdown prompt templates
 ├── data/                    # SQLite database (auto-created)
 ├── exports/                 # Generated reports (auto-created)
+├── .env.example             # Environment variable reference
 ├── requirements.txt
 ├── setup.sh
 └── .gitignore
@@ -185,11 +211,29 @@ McK-Consutlancy/
 | `GET` | `/api/prompts` | List all 12 prompts |
 | `GET` | `/api/prompts/{id}` | Single prompt detail |
 | `POST` | `/api/analyze/stream` | SSE streaming analysis |
+| `POST` | `/api/analyze/batch` | Run multiple frameworks at once |
+| `POST` | `/api/analyze/estimate` | Pre-generation cost estimate |
 | `GET` | `/api/sessions` | List sessions |
 | `POST` | `/api/sessions` | Create session |
-| `GET` | `/api/sessions/{id}` | Session + analyses |
-| `PUT` | `/api/sessions/{id}` | Update session |
+| `GET` | `/api/sessions/{id}` | Session + all analyses |
+| `PUT` | `/api/sessions/{id}` | Update session name / context |
 | `DELETE` | `/api/sessions/{id}` | Delete session |
-| `POST` | `/api/export` | Generate PDF or DOCX |
-| `GET` | `/api/cache/stats` | Cache hit stats |
-| `DELETE` | `/api/cache` | Clear cache |
+| `GET` | `/api/analyses/{id}/feedback` | Feedback message history |
+| `POST` | `/api/analyses/{id}/feedback/stream` | SSE feedback refinement |
+| `POST` | `/api/export` | Generate DOCX or PDF report |
+| `GET` | `/api/cache/stats` | Cache hit rate + savings |
+| `DELETE` | `/api/cache` | Clear all cached responses |
+
+---
+
+## Environment Variables
+
+See `.env.example` for the full reference. All variables are optional — the API key can be entered in the UI instead.
+
+| Variable | Default | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | — | Server-side API key override |
+| `DATABASE_URL` | `sqlite:///./data/mck.db` | SQLite database path |
+| `EXPORTS_DIR` | `exports` | Output directory for generated reports |
+| `HOST` | `0.0.0.0` | FastAPI bind host |
+| `PORT` | `8000` | FastAPI bind port |
