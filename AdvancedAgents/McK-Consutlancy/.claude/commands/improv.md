@@ -8,11 +8,11 @@ Display this improvement catalog and help me choose what to implement next.
 
 - **A** ~~Wire up Stop button~~ ✓ (done)
 - **B** ~~"Test API Key" button on Setup~~ ✓ (done)
-- **C** Generated-at timestamp on outputs — `frontend/src/components/AnalysisTab.tsx`
-- **D** Success toast after batch analysis — `frontend/src/pages/Research.tsx` ~line 199
-- **E** Keyboard Escape to close modals — `frontend/src/components/ExportModal.tsx` ~line 64
-- **F** Fix prompt filename typo (`2_CompetetiveLandscapte.md` → `2_CompetitiveLandscape.md`)
-- **G** Add `.env.example` file
+- **C** ~~Generated-at timestamp on outputs~~ ✓ (done)
+- **D** ~~Success toast after batch analysis~~ ✓ (done)
+- **E** ~~Keyboard Escape to close modals~~ ✓ (done)
+- **F** ~~Fix prompt filename typo (`2_CompetetiveLandscapte.md` → `2_CompetitiveLandscape.md`)~~ ✓ (done)
+- **G** ~~Add `.env.example` file~~ ✓ (done)
 
 ## Medium Effort
 

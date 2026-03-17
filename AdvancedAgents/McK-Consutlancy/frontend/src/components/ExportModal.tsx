@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { exportReport } from '../lib/api'
 import { downloadBlob } from '../lib/utils'
 import { useApp } from '../App'
@@ -17,6 +17,14 @@ export default function ExportModal({ sessionId, prompts, completedIds, onClose 
   const [selected, setSelected] = useState<Set<string>>(new Set(completedIds))
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onClose])
 
   function togglePrompt(id: string) {
     setSelected(prev => {

@@ -26,6 +26,9 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
   const [savedMeta, setSavedMeta] = useState<AnalysisMeta | null>(prompt.existingMeta || null)
   // Live feedback streaming output — replaces savedOutput while feedback is in progress
   const [feedbackOutput, setFeedbackOutput] = useState<string>('')
+  const [generatedAt, setGeneratedAt] = useState<Date | null>(
+    prompt.existingMeta ? new Date() : null
+  )
 
   const displayOutput = output || feedbackOutput || savedOutput
   const displayMeta = meta || savedMeta
@@ -54,6 +57,7 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
     if (status === 'done' && meta && output) {
       setSavedOutput(output)
       setSavedMeta(meta)
+      setGeneratedAt(new Date())
       if (onComplete) {
         onComplete(prompt.id, {
           prompt_id: prompt.id,
@@ -246,6 +250,11 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
           {displayMeta.cost_usd != null && (
             <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>
               {formatCost(displayMeta.cost_usd)}
+            </span>
+          )}
+          {generatedAt && (
+            <span style={{ marginLeft: 'auto' }}>
+              Generated {generatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
         </div>

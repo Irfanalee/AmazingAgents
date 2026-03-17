@@ -7,7 +7,7 @@ PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts"
 PROMPT_METADATA = [
     {"id": "executive_strategy", "filename": "0_ExecutiveStrategy-Master.md", "order": 0},
     {"id": "tam_analysis", "filename": "1_TAM.md", "order": 1},
-    {"id": "competitive_landscape", "filename": "2_CompetetiveLandscapte.md", "order": 2},
+    {"id": "competitive_landscape", "filename": "2_CompetitiveLandscape.md", "order": 2},
     {"id": "customer_personas", "filename": "3_CustomerPersonas.md", "order": 3},
     {"id": "industry_trends", "filename": "4_IndustryTrendAnalysis.md", "order": 4},
     {"id": "swot_porters", "filename": "5_SWOTandP5F.md", "order": 5},

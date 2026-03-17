@@ -121,6 +121,7 @@ export default function Research() {
         setBatchErrors(errors.map(e => ({ prompt_id: e.prompt_id, error: e.error ?? 'Unknown error' })))
       } else {
         setBatchMsg(`All ${results.length} analyses complete ✓`)
+        setTimeout(() => setBatchMsg(''), 4000)
       }
     } catch (e) {
       setBatchMsg('Batch failed')
