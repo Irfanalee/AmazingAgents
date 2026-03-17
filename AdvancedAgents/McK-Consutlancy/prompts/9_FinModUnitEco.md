@@ -16,6 +16,7 @@ Unit economics breakdown:
 • Key assumptions table with justification for each assumption
 • Benchmark comparison: How do my metrics compare to industry standards
 • Red flags: What numbers should worry me and trigger action
-• State the source of your financial numbers in each section. 
+State the source of your financial numbers in each section. 
 Format as a financial model summary with clear tables and formulas.
+IMPORTANT: All tables MUST use standard GitHub Flavored Markdown (GFM) table format with pipe separators and a header separator row (e.g. |---|---|). Do NOT use ASCII art tables, code blocks, or plain text for tabular data.
 My business: [DESCRIBE BUSINESS MODEL, CURRENT REVENUE, COSTS, GROWTH RATE]

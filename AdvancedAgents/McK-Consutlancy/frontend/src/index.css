@@ -34,8 +34,8 @@
   --streaming-cursor: #C9A84C;
   --output-bg: #061829;
   --code-bg: #061829;
-  --table-header-bg: #0d2d55;
-  --table-row-alt: #0a2545;
+  --table-header-bg: #061829;
+  --table-row-alt: #0d2341;
 }
 
 /* Theme 2: Premium White */
@@ -94,8 +94,8 @@
   --streaming-cursor: #00D4FF;
   --output-bg: #0D1117;
   --code-bg: #161b22;
-  --table-header-bg: #21262d;
-  --table-row-alt: #161b22;
+  --table-header-bg: #161b22;
+  --table-row-alt: #0d1117;
 }
 
 /* ── Base styles ─────────────────────────────────────────────── */
@@ -316,10 +316,13 @@ body {
 
 .markdown-output table th {
   background-color: var(--table-header-bg);
-  color: var(--text-primary);
+  color: #ffffff;
   padding: 10px 14px;
   text-align: left;
   font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   border: 1px solid var(--border-color);
 }
 
@@ -331,6 +334,10 @@ body {
 
 .markdown-output table tr:nth-child(even) td {
   background-color: var(--table-row-alt);
+}
+
+.markdown-output table tr:hover td {
+  background-color: var(--bg-hover);
 }
 
 .markdown-output hr {

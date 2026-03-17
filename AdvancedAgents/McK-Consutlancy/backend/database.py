@@ -35,6 +35,7 @@ class Analysis(Base):
     output_tokens = Column(Integer, default=0)
     cost_usd = Column(Float, default=0.0)
     from_cache = Column(Boolean, default=False)
+    excel_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -62,6 +63,13 @@ class FeedbackMessage(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE analyses ADD COLUMN excel_path TEXT"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
 
 
 def get_db():

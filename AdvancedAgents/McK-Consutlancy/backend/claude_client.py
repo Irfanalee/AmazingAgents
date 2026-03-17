@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from .database import Cache, Analysis, FeedbackMessage
 from .models import estimate_cost
+from . import excel_service
 
 CACHE_TTL_DAYS = 7
 
@@ -95,6 +96,18 @@ def save_analysis(
     return analysis_id
 
 
+def _maybe_generate_excel(db: DBSession, prompt_id: str, analysis_id: str, text: str) -> None:
+    if prompt_id != '9':
+        return
+    try:
+        tables = excel_service.parse_markdown_tables(text)
+        path = excel_service.save_tables_to_excel(tables, analysis_id)
+        db.query(Analysis).filter(Analysis.id == analysis_id).update({"excel_path": path})
+        db.commit()
+    except Exception as e:
+        print(f"[excel_service] Warning: {e}")
+
+
 async def stream_analysis(
     api_key: str,
     model: str,
@@ -124,6 +137,7 @@ async def stream_analysis(
             cached.input_tokens, cached.output_tokens, cached.cost_usd,
             from_cache=True,
         )
+        _maybe_generate_excel(db, prompt_id, analysis_id, cached.response)
         yield f"data: {json.dumps({'type': 'done', 'analysis_id': analysis_id, 'from_cache': True, 'input_tokens': cached.input_tokens, 'output_tokens': cached.output_tokens, 'cost_usd': cached.cost_usd})}\n\n"
         return
 
@@ -161,6 +175,7 @@ async def stream_analysis(
             input_tokens, output_tokens, cost_usd,
             from_cache=False,
         )
+        _maybe_generate_excel(db, prompt_id, analysis_id, full_response)
 
         yield f"data: {json.dumps({'type': 'done', 'analysis_id': analysis_id, 'from_cache': False, 'input_tokens': input_tokens, 'output_tokens': output_tokens, 'cost_usd': cost_usd})}\n\n"
 

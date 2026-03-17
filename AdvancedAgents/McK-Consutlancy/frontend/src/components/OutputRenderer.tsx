@@ -7,8 +7,19 @@ interface OutputRendererProps {
   isStreaming?: boolean
 }
 
+function unwrapCodeBlockTables(text: string): string {
+  // If a fenced code block's body is entirely pipe-table lines, strip the fences
+  // so ReactMarkdown + remarkGfm renders them as HTML tables instead of <pre><code>
+  return text.replace(
+    /```[^\n]*\n((?:\|[^\n]+\n)+)```/g,
+    '$1'
+  )
+}
+
 export default function OutputRenderer({ content, isStreaming = false }: OutputRendererProps) {
   if (!content) return null
+
+  const processedContent = unwrapCodeBlockTables(content)
 
   return (
     <div className={`markdown-output ${isStreaming ? 'streaming-cursor' : ''}`}>
@@ -17,8 +28,10 @@ export default function OutputRenderer({ content, isStreaming = false }: OutputR
         components={{
           // Tables
           table: ({ children }) => (
-            <div style={{ overflowX: 'auto', margin: '16px 0' }}>
-              <table>{children}</table>
+            <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden', margin: '16px 0' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table>{children}</table>
+              </div>
             </div>
           ),
           // Code blocks
@@ -48,7 +61,7 @@ export default function OutputRenderer({ content, isStreaming = false }: OutputR
           ),
         }}
       >
-        {content}
+        {processedContent}
       </ReactMarkdown>
     </div>
   )

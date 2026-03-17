@@ -10,43 +10,53 @@ from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from htmldocx import HtmlToDocx
+from . import excel_service
 
 EXPORTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "exports")
 os.makedirs(EXPORTS_DIR, exist_ok=True)
 
 
-def _tables_to_pre(html: str) -> str:
-    """Convert HTML tables to ASCII <pre> blocks — xhtml2pdf crashes on tables."""
-    soup = BeautifulSoup(html, "html.parser")
-    for table in soup.find_all("table"):
-        rows = []
-        for tr in table.find_all("tr"):
-            cells = [td.get_text(strip=True) for td in tr.find_all(["th", "td"])]
-            rows.append(cells)
-        if not rows:
-            table.decompose()
-            continue
-        num_cols = max(len(r) for r in rows)
-        col_widths = [
-            max((len(r[i]) if i < len(r) else 0) for r in rows)
-            for i in range(num_cols)
-        ]
-        lines = []
-        for idx, row in enumerate(rows):
-            padded = [
-                (row[i] if i < len(row) else "").ljust(col_widths[i])
-                for i in range(num_cols)
-            ]
-            lines.append("| " + " | ".join(padded) + " |")
-            if idx == 0:
-                lines.append("|-" + "-|-".join("-" * w for w in col_widths) + "-|")
-        pre = soup.new_tag("pre")
-        pre.string = "\n".join(lines)
-        table.replace_with(pre)
-    return str(soup)
-
-
 # ── DOCX ─────────────────────────────────────────────────────────────────────
+
+
+def _set_cell_shading(cell, fill_hex: str):
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), fill_hex)
+    tcPr.append(shd)
+
+
+def _style_docx_tables(doc):
+    """Apply McKinsey-style formatting to all tables in the document."""
+    for table in doc.tables:
+        try:
+            table.style = 'Table Grid'
+        except Exception:
+            pass
+        for row_idx, row in enumerate(table.rows):
+            for cell in row.cells:
+                if row_idx == 0:
+                    _set_cell_shading(cell, '0A2342')
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            run.bold = True
+                            run.font.size = Pt(9)
+                            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                        para.paragraph_format.space_before = Pt(0)
+                        para.paragraph_format.space_after = Pt(0)
+                else:
+                    fill = 'EBF0FA' if row_idx % 2 == 0 else 'FFFFFF'
+                    _set_cell_shading(cell, fill)
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            run.font.size = Pt(9)
+                            run.font.color.rgb = RGBColor(0x1A, 0x1A, 0x2E)
+                        para.paragraph_format.space_before = Pt(0)
+                        para.paragraph_format.space_after = Pt(0)
 
 def generate_docx(session_name: str, analyses: List[dict]) -> str:
     doc = Document()
@@ -113,6 +123,7 @@ def generate_docx(session_name: str, analyses: List[dict]) -> str:
                 extensions=["tables", "fenced_code"],
             )
             parser.add_html_to_document(content_html, doc)
+            _style_docx_tables(doc)
 
         doc.add_page_break()
 
@@ -186,20 +197,24 @@ ol { margin: 8px 0 8px 22px; }
 li { margin: 3px 0; }
 table {
     width: 100%;
-    table-layout: fixed;
     border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid #ccc;
     margin: 14px 0;
     font-size: 9pt;
     word-wrap: break-word;
 }
 th {
+    width: 100%;
     background: #0A2342;
     color: white;
     padding: 5px 4px;
     text-align: left;
     font-weight: bold;
+    border: 1px solid #ccc;
 }
 td {
+    width: 100%;
     border: 1px solid #ddd;
     padding: 4px 4px;
 }
@@ -224,6 +239,44 @@ pre {
 }
 strong { color: #0A2342; }
 """
+
+
+def _replace_tables_with_excel_html(content_html: str, excel_tables_html: str) -> str:
+    """Replace markdown-converted tables in content_html with Excel-sourced HTML tables."""
+    soup = BeautifulSoup(content_html, "html.parser")
+    md_tables = soup.find_all("table")
+    if not md_tables:
+        return excel_tables_html + str(soup)
+
+    # Parse Excel HTML into (heading + table) units
+    esoup = BeautifulSoup(excel_tables_html, "html.parser")
+    units, children = [], list(esoup.children)
+    i = 0
+    while i < len(children):
+        node = children[i]
+        if hasattr(node, 'name'):
+            if (node.name == 'p' and i + 1 < len(children)
+                    and hasattr(children[i + 1], 'name')
+                    and children[i + 1].name == 'table'):
+                units.append(str(node) + str(children[i + 1]))
+                i += 2
+                continue
+            elif node.name == 'table':
+                units.append(str(node))
+        i += 1
+
+    if not units:
+        return content_html
+
+    if len(md_tables) == len(units):
+        for md_tbl, unit in zip(md_tables, units):
+            md_tbl.replace_with(BeautifulSoup(unit, "html.parser"))
+        return str(soup)
+
+    # Count mismatch: strip markdown tables, prepend Excel tables
+    for t in md_tables:
+        t.decompose()
+    return excel_tables_html + str(soup)
 
 
 def generate_pdf(session_name: str, analyses: List[dict]) -> str:
@@ -253,7 +306,17 @@ def generate_pdf(session_name: str, analyses: List[dict]) -> str:
             output,
             extensions=["tables", "fenced_code"],
         )
-        content_html = _tables_to_pre(content_html)
+
+        excel_path = analysis.get("excel_path")
+        if (analysis.get("prompt_id") == "9"
+                and excel_path
+                and os.path.isfile(excel_path)):
+            try:
+                excel_html = excel_service.render_excel_tables_as_html(excel_path)
+                content_html = _replace_tables_with_excel_html(content_html, excel_html)
+            except Exception as e:
+                print(f"[export_service] Excel table replacement failed: {e}")
+
         meta = f"Cost: ${cost:.4f}" + (" &mdash; served from cache" if from_cache else "")
 
         html_parts.append(

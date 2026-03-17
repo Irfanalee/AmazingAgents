@@ -393,27 +393,46 @@ def export_report(request: ExportRequest, db: DBSession = Depends(get_db)):
             "output": a.output or "",
             "cost_usd": a.cost_usd or 0,
             "from_cache": a.from_cache or False,
+            "excel_path": a.excel_path,
         }
         for a in analyses
     ]
 
-    safe_name = "".join(
-        c for c in session.name if c.isalnum() or c in " _-"
-    ).strip()[:40] or "report"
+    shared_ctx = json.loads(session.shared_context) if session.shared_context else {}
+    company_name = (shared_ctx.get('business_name') or session.name or 'Report').strip()
+    safe_company = "".join(c for c in company_name if c.isalnum() or c in " _-").strip()[:35].replace(' ', '_') or 'Report'
+
+    date_stamp = datetime.utcnow().strftime("%Y%m%d")
+
+    TOTAL_FRAMEWORKS = 12
+    n = len(analyses)
+    if n == TOTAL_FRAMEWORKS:
+        content_label = "Full_Strategy_Report"
+    elif n >= 4:
+        content_label = f"{n}_Framework_Analysis"
+    elif n == 1:
+        title = prompt_map.get(analyses[0].prompt_id, "Analysis")
+        content_label = "".join(c if c.isalnum() else "_" for c in title).strip("_")[:30]
+    else:  # 2–3 frameworks
+        def _first_word(pid):
+            return prompt_map.get(pid, pid).split()[0]
+        content_label = "-".join(_first_word(a.prompt_id) for a in analyses)
+
+    download_name = f"{safe_company}_{content_label}_{date_stamp}"
 
     try:
         if request.format == "docx":
             filepath = generate_docx(session.name, analyses_data)
             return FileResponse(
                 filepath,
-                filename=f"pls_{safe_name}.docx",
+                filename=f"{download_name}.docx",
                 media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
         elif request.format == "pdf":
             filepath = generate_pdf(session.name, analyses_data)
             return FileResponse(
                 filepath,
-                filename=f"pls_{safe_name}.pdf",
+                filename=f"{download_name}.pdf",
                 media_type="application/pdf",
             )
         else:
