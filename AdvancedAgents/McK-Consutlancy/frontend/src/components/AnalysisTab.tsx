@@ -15,7 +15,7 @@ interface AnalysisTabProps {
 
 export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisTabProps) {
   const { apiKey, sharedContext } = useApp()
-  const { status, output, meta, error, run, reset } = useAnalysis()
+  const { status, output, meta, error, run, reset, stop } = useAnalysis()
   const [extraInputs, setExtraInputs] = useState<Record<string, string>>({})
   const [model, setModel] = useState<string>('claude-sonnet-4-6')
   const [costEstimate, setCostEstimate] = useState<number | null>(null)
@@ -186,7 +186,7 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
         </button>
 
         {isRunning && (
-          <button className="theme-btn-secondary" onClick={() => { }}>
+          <button className="theme-btn-secondary" onClick={stop}>
             Stop
           </button>
         )}

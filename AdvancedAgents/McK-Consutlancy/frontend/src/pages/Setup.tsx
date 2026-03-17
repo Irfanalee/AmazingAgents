@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import { useApp } from '../App'
 import ThemeToggle from '../components/ThemeToggle'
 import type { SharedContext } from '../types'
@@ -45,9 +46,21 @@ export default function Setup() {
   const [keyInput, setKeyInput] = useState<string>(apiKey || '')
   const [showKey, setShowKey] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle')
 
   function handleContextChange(key: keyof SharedContext, value: string) {
     setSharedContext(prev => ({ ...prev, [key]: value }))
+  }
+
+  async function handleTestKey() {
+    if (!keyInput.trim()) return
+    setTestStatus('testing')
+    try {
+      await axios.get('/api/prompts', { headers: { 'X-API-Key': keyInput.trim() } })
+      setTestStatus('valid')
+    } catch {
+      setTestStatus('invalid')
+    }
   }
 
   function handleContinue() {
@@ -111,7 +124,7 @@ export default function Setup() {
               type={showKey ? 'text' : 'password'}
               placeholder="sk-ant-api03-…"
               value={keyInput}
-              onChange={e => { setKeyInput(e.target.value); setError('') }}
+              onChange={e => { setKeyInput(e.target.value); setError(''); setTestStatus('idle') }}
               onKeyDown={e => e.key === 'Enter' && handleContinue()}
               style={{ flex: 1 }}
             />
@@ -122,7 +135,21 @@ export default function Setup() {
             >
               {showKey ? '🙈' : '👁️'}
             </button>
+            <button
+              className="theme-btn-secondary"
+              onClick={handleTestKey}
+              disabled={testStatus === 'testing' || !keyInput.trim()}
+              style={{ flexShrink: 0, padding: '8px 14px' }}
+            >
+              {testStatus === 'testing' ? 'Testing…' : 'Test'}
+            </button>
           </div>
+          {testStatus === 'valid' && (
+            <p style={{ color: '#86efac', fontSize: '13px', margin: '8px 0 0' }}>✓ Valid</p>
+          )}
+          {testStatus === 'invalid' && (
+            <p style={{ color: '#fca5a5', fontSize: '13px', margin: '8px 0 0' }}>✗ Invalid key</p>
+          )}
           {error && (
             <p style={{ color: '#fca5a5', fontSize: '13px', margin: '8px 0 0' }}>{error}</p>
           )}
