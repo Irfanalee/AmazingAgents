@@ -61,6 +61,7 @@ export default function Layout({ children, title, actions }: LayoutProps) {
         <nav style={{ display: 'flex', gap: '4px' }}>
           {[
             { path: '/research', label: 'Research' },
+            { path: '/business-case', label: 'Business Case' },
             { path: '/history', label: 'History' },
             { path: '/setup', label: 'Settings' },
           ].map(link => (

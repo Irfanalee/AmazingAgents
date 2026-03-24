@@ -61,6 +61,17 @@ class FeedbackMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class BusinessCase(Base):
+    __tablename__ = "business_cases"
+    id = Column(String, primary_key=True)
+    session_id = Column(String, nullable=True)
+    filename = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)  # pdf | xlsx | xls | docx
+    raw_text = Column(Text, nullable=False)
+    char_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     from sqlalchemy import text

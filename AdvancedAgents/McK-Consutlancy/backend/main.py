@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,11 +19,13 @@ from .database import (
     Analysis as AnalysisModel,
     Cache as CacheModel,
     FeedbackMessage as FeedbackMessageModel,
+    BusinessCase as BusinessCaseModel,
 )
-from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, BatchAnalyzeRequest, FeedbackRequest, estimate_cost
-from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt
+from .models import AnalyzeRequest, SessionCreate, SessionUpdate, ExportRequest, BatchAnalyzeRequest, FeedbackRequest, SanityCheckRequest, estimate_cost
+from .prompt_manager import get_all_prompts, get_prompt_by_id, fill_prompt, build_sanity_check_prompt
 from .claude_client import stream_analysis, analyze_single, stream_feedback
 from .export_service import generate_docx, generate_pdf
+from .file_parser import parse_file
 
 app = FastAPI(title="NPI Strategy Suite", version="1.0.0")
 
@@ -39,6 +41,14 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_db()
+
+
+def _get_business_case_text(business_case_id: Optional[str], db: DBSession) -> Optional[str]:
+    """Look up business case raw text by id; returns None if not found or id is None."""
+    if not business_case_id:
+        return None
+    bc = db.query(BusinessCaseModel).filter(BusinessCaseModel.id == business_case_id).first()
+    return bc.raw_text if bc else None
 
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
@@ -62,11 +72,13 @@ def get_prompt(prompt_id: str):
 async def estimate_analysis_cost(
     request: AnalyzeRequest,
     x_api_key: Optional[str] = Header(None),
+    db: DBSession = Depends(get_db),
 ):
     if not x_api_key:
         raise HTTPException(400, "X-API-Key header required")
 
-    filled = fill_prompt(request.prompt_id, request.shared_context, request.extra_inputs)
+    business_case_text = _get_business_case_text(request.business_case_id, db)
+    filled = fill_prompt(request.prompt_id, request.shared_context, request.extra_inputs, business_case_text=business_case_text)
     if not filled:
         raise HTTPException(404, f"Prompt '{request.prompt_id}' not found")
 
@@ -93,13 +105,15 @@ async def analyze_stream(
     if not x_api_key:
         raise HTTPException(400, "X-API-Key header required")
 
-    filled = fill_prompt(request.prompt_id, request.shared_context, request.extra_inputs)
+    business_case_text = _get_business_case_text(request.business_case_id, db)
+    filled = fill_prompt(request.prompt_id, request.shared_context, request.extra_inputs, business_case_text=business_case_text)
     if not filled:
         raise HTTPException(404, f"Prompt '{request.prompt_id}' not found")
 
     inputs_dict = {
         "shared_context": request.shared_context.model_dump(),
         "extra_inputs": request.extra_inputs,
+        "business_case_id": request.business_case_id,
     }
 
     async def event_generator():
@@ -136,10 +150,15 @@ async def analyze_batch(
     target_ids = request.prompt_ids or [p["id"] for p in get_all_prompts()]
 
     async def run_one(prompt_id: str) -> dict:
-        filled = fill_prompt(prompt_id, request.shared_context, {})
+        db = SessionLocal()
+        try:
+            bc_text = _get_business_case_text(request.business_case_id, db)
+        finally:
+            db.close()
+        filled = fill_prompt(prompt_id, request.shared_context, {}, business_case_text=bc_text)
         if not filled:
             return {"prompt_id": prompt_id, "error": "Prompt not found"}
-        inputs_dict = {"shared_context": request.shared_context.model_dump(), "extra_inputs": {}}
+        inputs_dict = {"shared_context": request.shared_context.model_dump(), "extra_inputs": {}, "business_case_id": request.business_case_id}
         db = SessionLocal()
         try:
             return await analyze_single(
@@ -462,6 +481,143 @@ def clear_cache(db: DBSession = Depends(get_db)):
     db.query(CacheModel).delete()
     db.commit()
     return {"ok": True}
+
+
+# ── Business Case ─────────────────────────────────────────────────────────────
+
+@app.post("/api/business-case/upload")
+async def upload_business_case(
+    file: UploadFile = File(...),
+    session_id: Optional[str] = Form(None),
+    db: DBSession = Depends(get_db),
+):
+    if not file.filename:
+        raise HTTPException(400, "No filename provided")
+    file_bytes = await file.read()
+    try:
+        raw_text = parse_file(file.filename, file_bytes)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+    bc_id = str(uuid.uuid4())
+    bc = BusinessCaseModel(
+        id=bc_id,
+        session_id=session_id,
+        filename=file.filename,
+        file_type=ext,
+        raw_text=raw_text,
+        char_count=len(raw_text),
+    )
+    db.add(bc)
+    db.commit()
+    db.refresh(bc)
+    return {
+        "id": bc.id,
+        "filename": bc.filename,
+        "file_type": bc.file_type,
+        "char_count": bc.char_count,
+        "preview": raw_text[:500],
+        "created_at": bc.created_at.isoformat(),
+    }
+
+
+@app.get("/api/business-case/{business_case_id}")
+def get_business_case(business_case_id: str, db: DBSession = Depends(get_db)):
+    bc = db.query(BusinessCaseModel).filter(BusinessCaseModel.id == business_case_id).first()
+    if not bc:
+        raise HTTPException(404, "Business case not found")
+    return {
+        "id": bc.id,
+        "filename": bc.filename,
+        "file_type": bc.file_type,
+        "char_count": bc.char_count,
+        "preview": bc.raw_text[:1000],
+        "created_at": bc.created_at.isoformat(),
+    }
+
+
+@app.delete("/api/business-case/{business_case_id}")
+def delete_business_case(business_case_id: str, db: DBSession = Depends(get_db)):
+    bc = db.query(BusinessCaseModel).filter(BusinessCaseModel.id == business_case_id).first()
+    if not bc:
+        raise HTTPException(404, "Business case not found")
+    db.delete(bc)
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/sanity-check/stream")
+async def sanity_check_stream(
+    request: SanityCheckRequest,
+    x_api_key: Optional[str] = Header(None),
+    db: DBSession = Depends(get_db),
+):
+    if not x_api_key:
+        raise HTTPException(400, "X-API-Key header required")
+
+    bc = db.query(BusinessCaseModel).filter(BusinessCaseModel.id == request.business_case_id).first()
+    if not bc:
+        raise HTTPException(404, "Business case not found")
+
+    session = db.query(SessionModel).filter(SessionModel.id == request.session_id).first()
+    if not session:
+        raise HTTPException(404, "Session not found")
+
+    analyses = (
+        db.query(AnalysisModel)
+        .filter(
+            AnalysisModel.session_id == request.session_id,
+            AnalysisModel.prompt_id != "sanity_check",
+        )
+        .order_by(AnalysisModel.created_at)
+        .all()
+    )
+    if not analyses:
+        raise HTTPException(400, "No framework analyses found for this session")
+
+    prompt_map = {p["id"]: p["title"] for p in get_all_prompts()}
+    analyses_list = [
+        {"title": prompt_map.get(a.prompt_id, a.prompt_id), "output": a.output or ""}
+        for a in analyses
+    ]
+
+    import json as _json
+    ctx_dict = _json.loads(session.shared_context) if session.shared_context else {}
+    from .models import SharedContext as SharedContextModel
+    ctx = SharedContextModel(**ctx_dict)
+
+    filled = build_sanity_check_prompt(ctx, bc.raw_text, analyses_list)
+    if not filled:
+        raise HTTPException(500, "Failed to build sanity check prompt")
+
+    inputs_dict = {
+        "session_id": request.session_id,
+        "business_case_id": request.business_case_id,
+        "analysis_count": len(analyses),
+    }
+
+    async def event_generator():
+        async for chunk in stream_analysis(
+            api_key=x_api_key,
+            model=request.model,
+            prompt_id="sanity_check",
+            filled_prompt=filled,
+            inputs_dict=inputs_dict,
+            db=db,
+            session_id=request.session_id,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ── Static frontend (built UI) ────────────────────────────────────────────────

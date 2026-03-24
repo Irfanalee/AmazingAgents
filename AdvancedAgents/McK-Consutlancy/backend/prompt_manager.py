@@ -17,6 +17,7 @@ PROMPT_METADATA = [
     {"id": "financial_model", "filename": "9_FinModUnitEco.md", "order": 9},
     {"id": "risk_assessment", "filename": "10_RiskAssesmentAndScenerioPlan.md", "order": 10},
     {"id": "market_entry", "filename": "11_MarketEntryNExpan.md", "order": 11},
+    {"id": "sanity_check", "filename": "12_SanityCheck.md", "order": 12},
 ]
 
 # Short display names for sidebar
@@ -33,6 +34,7 @@ PROMPT_SHORT_NAMES = {
     "financial_model": "Financial Model",
     "risk_assessment": "Risk Assessment",
     "market_entry": "Market Entry",
+    "sanity_check": "Sanity Check",
 }
 
 # Extra inputs specific to each prompt beyond shared context
@@ -158,7 +160,7 @@ def build_full_context(ctx) -> str:
     return "; ".join(parts) if parts else "No context provided"
 
 
-def fill_prompt(prompt_id: str, ctx, extra_inputs: Dict[str, str] = {}) -> str:
+def fill_prompt(prompt_id: str, ctx, extra_inputs: Dict[str, str] = {}, business_case_text: Optional[str] = None) -> str:
     prompt = get_prompt_by_id(prompt_id)
     if not prompt:
         return ""
@@ -246,4 +248,33 @@ def fill_prompt(prompt_id: str, ctx, extra_inputs: Dict[str, str] = {}) -> str:
     for placeholder, replacement in replacements:
         text = text.replace(placeholder, replacement)
 
+    if business_case_text:
+        text += (
+            "\n\n---\n"
+            "## Business Case Document (uploaded by user)\n"
+            "The following is extracted from the client's actual business case document. "
+            "Use it to ground your analysis in real data where it is relevant:\n\n"
+            f"{business_case_text}\n"
+            "---"
+        )
+
     return text
+
+
+def build_sanity_check_prompt(ctx, business_case_text: str, analyses: List[Dict]) -> str:
+    """
+    Assembles the sanity check prompt by loading 12_SanityCheck.md,
+    filling shared context, then appending the business case and all analysis outputs.
+    analyses: list of {"title": str, "output": str}
+    """
+    base = fill_prompt("sanity_check", ctx)
+    if not base:
+        return ""
+
+    parts = [base, "\n\n---\n## Business Case Document\n\n" + business_case_text + "\n\n---"]
+
+    parts.append("\n## Framework Analyses to Review\n")
+    for a in analyses:
+        parts.append(f"\n### {a['title']}\n\n{a['output']}\n")
+
+    return "\n".join(parts)

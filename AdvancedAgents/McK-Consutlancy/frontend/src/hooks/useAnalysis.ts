@@ -6,7 +6,9 @@ import type { AnalysisStatus, AnalysisMeta } from '../types'
  * Hook for managing a streaming analysis request.
  * Returns state + a `run(payload)` trigger function.
  */
-export function useAnalysis() {
+export function useAnalysis(
+  streamFn: (apiKey: string, payload: Record<string, unknown>) => Promise<Response> = startAnalysisStream
+) {
   const [status, setStatus] = useState<AnalysisStatus>('idle')
   const [output, setOutput] = useState<string>('')
   const [meta, setMeta] = useState<AnalysisMeta | null>(null)
@@ -27,7 +29,7 @@ export function useAnalysis() {
     setError(null)
 
     try {
-      const res = await startAnalysisStream(apiKey, payload)
+      const res = await streamFn(apiKey, payload)
 
       if (!res.ok) {
         const text = await res.text()

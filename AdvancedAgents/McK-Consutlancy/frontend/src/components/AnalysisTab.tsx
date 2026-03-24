@@ -11,9 +11,10 @@ interface AnalysisTabProps {
   prompt: Prompt
   sessionId: string | null
   onComplete?: (promptId: string, data: StoredAnalysis) => void
+  businessCaseId?: string | null
 }
 
-export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisTabProps) {
+export default function AnalysisTab({ prompt, sessionId, onComplete, businessCaseId }: AnalysisTabProps) {
   const { apiKey, sharedContext } = useApp()
   const { status, output, meta, error, run, reset, stop } = useAnalysis()
   const [extraInputs, setExtraInputs] = useState<Record<string, string>>({})
@@ -110,6 +111,7 @@ export default function AnalysisTab({ prompt, sessionId, onComplete }: AnalysisT
       extra_inputs: extraInputs,
       model,
       session_id: sessionId,
+      business_case_id: businessCaseId ?? null,
     })
   }
 

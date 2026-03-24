@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Setup from './pages/Setup'
 import Research from './pages/Research'
 import History from './pages/History'
-import type { AppContextType, SharedContext } from './types'
+import BusinessCasePage from './pages/BusinessCase'
+import type { AppContextType, SharedContext, BusinessCase } from './types'
 
 export const AppContext = createContext<AppContextType | null>(null)
 
@@ -24,6 +25,16 @@ export default function App() {
       return {}
     }
   })
+  const [businessCase, setBusinessCase] = useState<BusinessCase | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('mck_business_case') || 'null') as BusinessCase | null
+    } catch {
+      return null
+    }
+  })
+  const [enrichPromptsWithBusinessCase, setEnrichPromptsWithBusinessCase] = useState<boolean>(
+    () => localStorage.getItem('mck_bc_enrich') === 'true'
+  )
 
   // Apply theme to <html> element
   useEffect(() => {
@@ -45,6 +56,15 @@ export default function App() {
     localStorage.setItem('mck_shared_context', JSON.stringify(sharedContext))
   }, [sharedContext])
 
+  useEffect(() => {
+    if (businessCase) localStorage.setItem('mck_business_case', JSON.stringify(businessCase))
+    else localStorage.removeItem('mck_business_case')
+  }, [businessCase])
+
+  useEffect(() => {
+    localStorage.setItem('mck_bc_enrich', String(enrichPromptsWithBusinessCase))
+  }, [enrichPromptsWithBusinessCase])
+
   const ctx: AppContextType = {
     apiKey,
     setApiKey,
@@ -54,6 +74,10 @@ export default function App() {
     setSessionId,
     sharedContext,
     setSharedContext,
+    businessCase,
+    setBusinessCase,
+    enrichPromptsWithBusinessCase,
+    setEnrichPromptsWithBusinessCase,
   }
 
   return (
@@ -64,6 +88,7 @@ export default function App() {
           <Route path="/setup" element={<Setup />} />
           <Route path="/research" element={apiKey ? <Research /> : <Navigate to="/setup" replace />} />
           <Route path="/history" element={apiKey ? <History /> : <Navigate to="/setup" replace />} />
+          <Route path="/business-case" element={apiKey ? <BusinessCasePage /> : <Navigate to="/setup" replace />} />
         </Routes>
       </BrowserRouter>
     </AppContext.Provider>

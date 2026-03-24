@@ -1,5 +1,5 @@
 import axios, { type AxiosResponse } from 'axios'
-import type { Prompt, Session, Analysis, CacheStats, SharedContext, FeedbackMessage } from '../types'
+import type { Prompt, Session, Analysis, CacheStats, SharedContext, FeedbackMessage, BusinessCase } from '../types'
 
 const BASE = '/api'
 
@@ -127,6 +127,42 @@ export function startFeedbackStream(
   payload: { message: string; model: string }
 ): Promise<Response> {
   return fetch(`${BASE}/analyses/${analysisId}/feedback/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
+// ── Business Case ─────────────────────────────────────────────────
+export async function uploadBusinessCase(
+  file: File,
+  sessionId?: string | null
+): Promise<BusinessCase> {
+  const form = new FormData()
+  form.append('file', file)
+  if (sessionId) form.append('session_id', sessionId)
+  const res = await axios.post<BusinessCase>(`${BASE}/business-case/upload`, form)
+  return res.data
+}
+
+export async function fetchBusinessCase(id: string): Promise<BusinessCase> {
+  const res = await axios.get<BusinessCase>(`${BASE}/business-case/${id}`)
+  return res.data
+}
+
+export async function deleteBusinessCase(id: string): Promise<{ ok: boolean }> {
+  const res = await axios.delete<{ ok: boolean }>(`${BASE}/business-case/${id}`)
+  return res.data
+}
+
+export function startSanityCheckStream(
+  apiKey: string,
+  payload: { session_id: string; business_case_id: string; model: string }
+): Promise<Response> {
+  return fetch(`${BASE}/sanity-check/stream`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

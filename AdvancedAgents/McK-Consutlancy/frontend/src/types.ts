@@ -88,6 +88,15 @@ export interface CacheStats {
   estimated_savings_usd: number
 }
 
+export interface BusinessCase {
+  id: string
+  filename: string
+  file_type: string
+  char_count: number
+  preview: string
+  created_at: string
+}
+
 export interface AppContextType {
   apiKey: string
   setApiKey: (k: string) => void
@@ -97,4 +106,8 @@ export interface AppContextType {
   setSessionId: (id: string | null) => void
   sharedContext: Partial<SharedContext>
   setSharedContext: React.Dispatch<React.SetStateAction<Partial<SharedContext>>>
+  businessCase: BusinessCase | null
+  setBusinessCase: (bc: BusinessCase | null) => void
+  enrichPromptsWithBusinessCase: boolean
+  setEnrichPromptsWithBusinessCase: (v: boolean) => void
 }

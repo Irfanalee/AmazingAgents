@@ -11,7 +11,7 @@ import ExportModal from '../components/ExportModal'
 import type { Prompt, StoredAnalysis, SharedContext } from '../types'
 
 export default function Research() {
-  const { apiKey, sessionId, setSessionId, sharedContext, setSharedContext, theme: _theme } = useApp()
+  const { apiKey, sessionId, setSessionId, sharedContext, setSharedContext, theme: _theme, businessCase, enrichPromptsWithBusinessCase } = useApp()
   const navigate = useNavigate()
 
   const [prompts, setPrompts] = useState<Prompt[]>([])
@@ -180,6 +180,21 @@ export default function Research() {
               : '📁 New Research Session'}
           </span>
 
+          {enrichPromptsWithBusinessCase && businessCase && (
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: 'var(--accent-primary)',
+              background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--accent-primary) 30%, transparent)',
+              borderRadius: '4px',
+              padding: '2px 8px',
+              flexShrink: 0,
+            }}>
+              📄 BC Enriched
+            </span>
+          )}
+
           <button
             className="theme-btn-secondary"
             onClick={handleNewResearch}
@@ -202,6 +217,15 @@ export default function Research() {
               {batchMsg}
             </span>
           )}
+
+          <button
+            className="theme-btn-secondary"
+            onClick={() => navigate('/business-case')}
+            style={{ fontSize: '12px', padding: '5px 10px' }}
+            title="Upload and manage your business case document"
+          >
+            📄 Business Case
+          </button>
 
           <button
             className="theme-btn-secondary"
@@ -316,6 +340,7 @@ export default function Research() {
                   prompt={enrichPrompt(p)}
                   sessionId={sessionId}
                   onComplete={handleAnalysisComplete}
+                  businessCaseId={enrichPromptsWithBusinessCase && businessCase ? businessCase.id : null}
                 />
               </div>
             ))}

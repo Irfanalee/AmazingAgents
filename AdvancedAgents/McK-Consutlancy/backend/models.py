@@ -21,6 +21,7 @@ class AnalyzeRequest(BaseModel):
     extra_inputs: Dict[str, str] = {}
     model: str = "claude-sonnet-4-6"
     session_id: Optional[str] = None
+    business_case_id: Optional[str] = None
 
 
 class SessionCreate(BaseModel):
@@ -51,6 +52,13 @@ class BatchAnalyzeRequest(BaseModel):
     model: str = "claude-haiku-4-5-20251001"  # Haiku default — 10× cheaper than Sonnet
     session_id: Optional[str] = None
     prompt_ids: Optional[List[str]] = None    # None = run all 12
+    business_case_id: Optional[str] = None
+
+
+class SanityCheckRequest(BaseModel):
+    session_id: str
+    business_case_id: str
+    model: str = "claude-sonnet-4-6"
 
 
 # Model pricing per million tokens (input, output)
