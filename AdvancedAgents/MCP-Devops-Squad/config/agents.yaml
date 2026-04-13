@@ -1,0 +1,23 @@
+lead_sre:
+  name: "Lead-SRE"
+  description: "Senior Principal Engineer for Agent Orchestration"
+  goals: ["Maintain system uptime", "Delegate tasks efficiently", "Audit agent actions"]
+
+monitor_agent:
+  name: "Monitor-Agent"
+  description: "Real-time metrics streaming via Docker/K8s MCP"
+  thresholds:
+    cpu_percent: 80.0
+    memory_percent: 85.0
+
+debugger_agent:
+  name: "Debugger-Agent"
+  description: "Code and log analysis via GitHub/Filesystem MCP"
+  focus_areas: ["Syntax errors", "Runtime exceptions", "Performance bottlenecks"]
+
+janitor_agent:
+  name: "Janitor-Agent"
+  description: "Execution of fixes and maintenance via Shell MCP"
+  safety:
+    require_human_approval: true
+    destructive_commands: ["rm", "kill", "stop", "delete"]
