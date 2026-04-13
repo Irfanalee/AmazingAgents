@@ -8,3 +8,4 @@ langchain
 langchain-google-vertexai
 langchain-core
 langchain-community
+structlog

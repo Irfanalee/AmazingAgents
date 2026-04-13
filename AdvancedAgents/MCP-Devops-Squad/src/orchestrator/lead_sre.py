@@ -1,52 +1,79 @@
-from typing import List, Optional
+import os
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
-import logging
+from langchain_google_vertexai import VertexAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from src.utils.logger import setup_logger
+from src.agents.monitor import MetricUpdate
 
-class AgentTask(BaseModel):
-    """Pydantic model for task definition and inter-agent communication."""
-    task_id: str
-    description: str
-    assigned_to: str
-    status: str = "pending"
-    context: dict = Field(default_factory=dict)
+class SREDecision(BaseModel):
+    """The structured reasoning result from Lead-SRE's decision loop."""
+    analysis: str = Field(description="The thought process of the Lead-SRE.")
+    action_required: bool = Field(description="Whether a sub-agent needs to be triggered.")
+    target_agent: Optional[str] = Field(description="The name of the sub-agent (Monitor, Debugger, Janitor).")
+    task_description: Optional[str] = Field(description="The specific instruction for the sub-agent.")
 
 class LeadSRE:
-    """The Lead-SRE orchestrator and decision-maker using A2A patterns."""
-    def __init__(self, name: str = "Lead-SRE"):
-        self.name = name
-        self.tasks: List[AgentTask] = []
-        self.logger = self._setup_logger()
+    """The Senior Principal SRE Orchestrator using LangChain for decision logic."""
+    def __init__(self, model_name: str = "gemini-1.5-pro"):
+        self.name = "Lead-SRE"
+        self.logger = setup_logger(self.name)
+        
+        # Vertex AI setup (requires GOOGLE_APPLICATION_CREDENTIALS)
+        try:
+            self.llm = VertexAI(model_name=model_name)
+            self.parser = JsonOutputParser(pydantic_object=SREDecision)
+        except Exception as e:
+            self.logger.warning("llm_init_failed", error=str(e), fallback="mocked_reasoning")
+            self.llm = None
 
-    def _setup_logger(self):
-        logger = logging.getLogger(self.name)
-        logger.setLevel(logging.INFO)
-        # Log to stdout for now; JSON logging to /logs/ will be added later
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        return logger
+    def analyze_situation(self, metrics: MetricUpdate) -> SREDecision:
+        """Use advanced reasoning to decide on the next course of action."""
+        self.logger.info("analyzing_metrics", resource=metrics.resource_id, cpu=metrics.cpu_percent)
 
-    def delegate_task(self, description: str, agent_name: str, context: dict = None) -> AgentTask:
-        """Create and assign a task to a sub-agent."""
-        task_id = f"task-{len(self.tasks) + 1}"
-        task = AgentTask(
-            task_id=task_id,
-            description=description,
-            assigned_to=agent_name,
-            context=context or {}
-        )
-        self.tasks.append(task)
-        self.logger.info(f"Delegated task {task_id} to {agent_name}: {description}")
-        return task
+        if not self.llm:
+            return self._mock_reasoning(metrics)
 
-    def orchestrate(self):
-        """Main orchestration loop (to be expanded with actual A2A logic)."""
-        self.logger.info(f"{self.name} orchestration loop started.")
-        # Logic to check Monitor-Agent metrics and trigger Debugger/Janitor will be added here
-        pass
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a Senior Principal SRE. Analyze the given metrics and decide if any action is needed."),
+            ("user", "Current Metrics: {metrics}\n\n{format_instructions}")
+        ])
+
+        chain = prompt | self.llm | self.parser
+        
+        try:
+            decision = chain.invoke({
+                "metrics": metrics.model_dump_json(),
+                "format_instructions": self.parser.get_format_instructions()
+            })
+            self.logger.info("decision_made", decision=decision)
+            return SREDecision(**decision)
+        except Exception as e:
+            self.logger.error("reasoning_failed", error=str(e))
+            return self._mock_reasoning(metrics)
+
+    def _mock_reasoning(self, metrics: MetricUpdate) -> SREDecision:
+        """Fallback logic if LLM is unavailable or for testing."""
+        if metrics.cpu_percent > 80:
+            return SREDecision(
+                analysis="CPU usage is critically high. Triggering Debugger for root cause analysis.",
+                action_required=True,
+                target_agent="Debugger-Agent",
+                task_description="Analyze process list and logs for high CPU usage."
+            )
+        return SREDecision(analysis="All metrics within normal range.", action_required=False)
 
 if __name__ == "__main__":
-    lead = LeadSRE()
-    lead.delegate_task("Check Docker container status", "Monitor-Agent")
-    lead.orchestrate()
+    # Test with a mock CPU spike
+    orchestrator = LeadSRE()
+    mock_metrics = MetricUpdate(
+        resource_id="server-99", 
+        cpu_percent=92.1, 
+        memory_percent=40.0, 
+        status="running", 
+        timestamp="2026-04-13T12:00:00"
+    )
+    decision = orchestrator.analyze_situation(mock_metrics)
+    print(f"\nLead-SRE Analysis:\n{decision.analysis}")
+    print(f"Action Required: {decision.action_required} -> {decision.target_agent}")
