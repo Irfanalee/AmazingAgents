@@ -4,3 +4,7 @@ google-cloud-aiplatform
 pyyaml
 pydantic-settings
 python-dotenv
+langchain
+langchain-google-vertexai
+langchain-core
+langchain-community
