@@ -1,10 +1,12 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+from typing import Optional, List
 
 class MCPSettings(BaseSettings):
     """Configuration for MCP server connections."""
     DOCKER_MCP_URI: Optional[str] = None
+    DOCKER_MCP_COMMAND: Optional[str] = "docker"
+    DOCKER_MCP_ARGS: List[str] = ["run", "-i", "--rm", "mcp/docker-server"]
     GITHUB_MCP_URI: Optional[str] = None
     FILESYSTEM_MCP_URI: Optional[str] = None
     GITHUB_TOKEN: Optional[str] = None
