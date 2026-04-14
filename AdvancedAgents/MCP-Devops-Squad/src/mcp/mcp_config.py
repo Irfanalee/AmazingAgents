@@ -7,6 +7,8 @@ class MCPSettings(BaseSettings):
     DOCKER_MCP_URI: Optional[str] = None
     DOCKER_MCP_COMMAND: Optional[str] = "docker"
     DOCKER_MCP_ARGS: List[str] = ["run", "-i", "--rm", "mcp/docker-server"]
+    TRIVY_MCP_COMMAND: Optional[str] = "docker"
+    TRIVY_MCP_ARGS: List[str] = ["run", "-i", "--rm", "-v", "/var/run/docker.sock:/var/run/docker.sock", "mcp/trivy-server"]
     GITHUB_MCP_URI: Optional[str] = None
     FILESYSTEM_MCP_URI: Optional[str] = None
     GITHUB_TOKEN: Optional[str] = None

@@ -36,7 +36,15 @@ class LeadSRE:
             return self._mock_reasoning(metrics)
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", "You are a Senior Principal SRE. Analyze the given metrics and decide if any action is needed."),
+            ("system", """You are a Senior Principal SRE. Analyze the given metrics and decide if any action is needed.
+            
+Available sub-agents to delegate to:
+- Monitor-Agent: For fetching live container/host metrics.
+- Debugger-Agent: For root-cause analysis in logs and source code.
+- Janitor-Agent: For executing remediation commands (e.g., restarts, cleanup).
+- Sargent-Agent: For vulnerability scanning and security audits (CVE scans).
+
+Use these agents to resolve the incident effectively. Always provide a clear analysis and task description."""),
             ("user", "Current Metrics: {metrics}\n\n{format_instructions}")
         ])
 
