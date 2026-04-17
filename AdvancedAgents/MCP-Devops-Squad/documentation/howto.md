@@ -24,7 +24,15 @@ Provides vulnerability scanning for images and local paths.
 
 ### 3. Filesystem & GitHub MCP Servers (Debugger-Agent)
 Used for deep analysis of logs and source code.
-- **Configuration:** `GITHUB_MCP_URI`, `FILESYSTEM_MCP_URI`, and `GITHUB_TOKEN`.
+- **Filesystem Image:** `mcp/filesystem-server`
+- **GitHub Image:** `mcp/github-server`
+- **Configuration:** `GITHUB_MCP_COMMAND`, `GITHUB_MCP_ARGS`, `FILESYSTEM_MCP_COMMAND`, `FILESYSTEM_MCP_ARGS`.
+- **Note:** `GITHUB_TOKEN` is required for repository access.
+
+### 4. Shell/CLI MCP Server (Janitor-Agent)
+Used to execute remediation commands.
+- **Default Image:** `mcp/shell-server`
+- **Configuration:** `SHELL_MCP_COMMAND`, `SHELL_MCP_ARGS`.
 
 ## How to Customize Connections
 

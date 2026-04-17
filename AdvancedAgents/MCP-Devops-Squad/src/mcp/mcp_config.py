@@ -10,7 +10,13 @@ class MCPSettings(BaseSettings):
     TRIVY_MCP_COMMAND: Optional[str] = "docker"
     TRIVY_MCP_ARGS: List[str] = ["run", "-i", "--rm", "-v", "/var/run/docker.sock:/var/run/docker.sock", "mcp/trivy-server"]
     GITHUB_MCP_URI: Optional[str] = None
+    GITHUB_MCP_COMMAND: Optional[str] = "docker"
+    GITHUB_MCP_ARGS: List[str] = ["run", "-i", "--rm", "mcp/github-server"]
     FILESYSTEM_MCP_URI: Optional[str] = None
+    FILESYSTEM_MCP_COMMAND: Optional[str] = "docker"
+    FILESYSTEM_MCP_ARGS: List[str] = ["run", "-i", "--rm", "-v", "/:/host", "mcp/filesystem-server"]
+    SHELL_MCP_COMMAND: Optional[str] = "docker"
+    SHELL_MCP_ARGS: List[str] = ["run", "-i", "--rm", "mcp/shell-server"]
     GITHUB_TOKEN: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

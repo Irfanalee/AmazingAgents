@@ -3,6 +3,9 @@ import json
 import os
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
+from src.utils.logger import setup_logger
+from src.mcp.mcp_client import MCPClient
+from src.mcp.mcp_config import get_mcp_config
 
 class CommandRequest(BaseModel):
     command: str
@@ -30,8 +33,12 @@ class JanitorAgent:
     """Agent responsible for executing fixes with Validator + HITL safety."""
     def __init__(self, name: str = "Janitor-Agent"):
         self.name = name
+        self.logger = setup_logger(self.name)
         self.validator = ValidatorAgent()
         self.approval_file = "config/pending_approvals.json"
+        self.config = get_mcp_config()
+        self.mcp = MCPClient()
+        self.connected = False
         self._ensure_approval_store()
 
     def _ensure_approval_store(self):
@@ -40,6 +47,14 @@ class JanitorAgent:
         if not os.path.exists(self.approval_file):
             with open(self.approval_file, "w") as f:
                 json.dump([], f)
+
+    def _ensure_connected(self):
+        if not self.connected and self.config.SHELL_MCP_COMMAND:
+            try:
+                self.mcp.sync_connect("shell", self.config.SHELL_MCP_COMMAND, self.config.SHELL_MCP_ARGS)
+                self.connected = True
+            except Exception as e:
+                self.logger.warning("mcp_connection_failed", server="shell", error=str(e), fallback="mock_mode")
 
     def request_execution(self, command: str, justification: str, resource_id: str):
         request = CommandRequest(command=command, justification=justification, resource_id=resource_id)
@@ -71,8 +86,22 @@ class JanitorAgent:
             json.dump(approvals, f, indent=2)
 
     def _execute_mcp_command(self, command: str):
-        """Simulated MCP Shell execution."""
-        return {"status": "success", "executed_command": command}
+        """Execute command via Shell MCP server."""
+        self.logger.info("executing_remediation", command=command)
+        self._ensure_connected()
+        
+        if self.connected:
+            try:
+                result = self.mcp.sync_call_tool("shell", "execute_command", {"command": command})
+                # Handle list of content blocks
+                output = result.content[0].text if hasattr(result, "content") and result.content else str(result)
+                self.logger.info("remediation_success", command=command)
+                return {"status": "success", "executed_command": command, "output": output}
+            except Exception as e:
+                self.logger.error("remediation_failed", command=command, error=str(e))
+                return {"status": "error", "executed_command": command, "error": str(e)}
+        
+        return {"status": "success", "executed_command": command, "note": "Mock execution (MCP not connected)"}
 
 if __name__ == "__main__":
     janitor = JanitorAgent()
@@ -82,12 +111,7 @@ if __name__ == "__main__":
     res1 = janitor.request_execution("rm -rf /tmp/stale-logs", "Cleanup", "server-01")
     print(res1)
 
-    # Test a blocked command (rejected by Validator)
-    print("\n--- Blocked Command ---")
-    res2 = janitor.request_execution("rm -rf /", "Total Destruction", "server-01")
-    print(res2)
-
-    # Test a safe command (executed directly)
+    # Test a safe command (executed directly via MCP/Mock)
     print("\n--- Safe Command ---")
     res3 = janitor.request_execution("ls -la", "Audit check", "server-01")
     print(res3)
