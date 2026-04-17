@@ -6,6 +6,10 @@ pydantic-settings
 python-dotenv
 langchain
 langchain-google-vertexai
+langchain-openai
+langchain-anthropic
+langchain-ollama
 langchain-core
 langchain-community
 structlog
+nest-asyncio

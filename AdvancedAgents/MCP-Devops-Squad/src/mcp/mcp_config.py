@@ -3,7 +3,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 
 class MCPSettings(BaseSettings):
-    """Configuration for MCP server connections."""
+    """Configuration for MCP server and AI provider connections."""
+    # AI Provider Settings
+    AI_PROVIDER: str = "google" # options: google, openai, anthropic, ollama
+    AI_MODEL: str = "gemini-1.5-pro"
+    AI_API_KEY: Optional[str] = None
+    AI_BASE_URL: Optional[str] = None # For Ollama or custom endpoints
+
+    # MCP Server Settings
     DOCKER_MCP_URI: Optional[str] = None
     DOCKER_MCP_COMMAND: Optional[str] = "docker"
     DOCKER_MCP_ARGS: List[str] = ["run", "-i", "--rm", "mcp/docker-server"]
