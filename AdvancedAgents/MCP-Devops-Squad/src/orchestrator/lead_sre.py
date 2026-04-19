@@ -7,9 +7,21 @@ from src.utils.logger import setup_logger
 from src.agents.monitor import MetricUpdate
 from src.mcp.mcp_config import get_mcp_config
 
+class ActionHistory(BaseModel):
+    """Records an action taken by a sub-agent and its result."""
+    agent_name: str
+    task: str
+    result: str
+
+class IncidentContext(BaseModel):
+    """Maintains the state of an ongoing incident investigation."""
+    initial_trigger: MetricUpdate
+    history: List[ActionHistory] = Field(default_factory=list)
+    is_resolved: bool = False
+
 class SREDecision(BaseModel):
     """The structured reasoning result from Lead-SRE's decision loop."""
-    analysis: str = Field(description="The thought process of the Lead-SRE.")
+    analysis: str = Field(description="The thought process of the Lead-SRE based on the current context.")
     action_required: bool = Field(description="Whether a sub-agent needs to be triggered.")
     target_agent: Optional[str] = Field(description="The name of the sub-agent (Monitor, Debugger, Janitor, Sargent).")
     task_description: Optional[str] = Field(description="The specific instruction for the sub-agent.")
@@ -53,52 +65,72 @@ class LeadSRE:
             self.logger.warning("llm_init_failed", error=str(e), fallback="mocked_reasoning")
             return None
 
-    def analyze_situation(self, metrics: MetricUpdate) -> SREDecision:
-        """Use advanced reasoning to decide on the next course of action."""
-        self.logger.info("analyzing_metrics", resource=metrics.resource_id, cpu=metrics.cpu_percent)
+    def analyze_situation(self, context: IncidentContext) -> SREDecision:
+        """Use advanced reasoning to decide on the next course of action based on the incident context."""
+        self.logger.info("analyzing_context", resource=context.initial_trigger.resource_id, history_length=len(context.history))
 
         if not self.llm:
-            return self._mock_reasoning(metrics)
+            return self._mock_reasoning(context)
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a Senior Principal SRE. Analyze the given metrics and decide if any action is needed.
+            ("system", """You are a Senior Principal SRE. Your goal is to resolve an incident through a multi-step investigation loop.
             
-Available sub-agents to delegate to:
-- Monitor-Agent: For fetching live container/host metrics.
-- Debugger-Agent: For root-cause analysis in logs and source code.
-- Janitor-Agent: For executing remediation commands (e.g., restarts, cleanup).
-- Sargent-Agent: For vulnerability scanning and security audits (CVE scans).
+Review the 'Incident Context' carefully. It contains:
+1. The initial trigger (metrics that started the investigation).
+2. A history of actions taken so far and their results.
 
-Use these agents to resolve the incident effectively. Always provide a clear analysis and task description."""),
-            ("user", "Current Metrics: {metrics}\n\n{format_instructions}")
+Your decision should:
+- Not repeat actions that have already been performed with the same parameters.
+- If you have enough information, delegate a fix to the Janitor-Agent.
+- If you need more info (logs, security scan, code audit), delegate to the appropriate sub-agent.
+- If the issue is resolved or no further action is required, set 'action_required' to False.
+
+Available sub-agents:
+- Monitor-Agent: Live metrics.
+- Debugger-Agent: Log and source code analysis.
+- Janitor-Agent: Execution of fixes/remediations.
+- Sargent-Agent: Security and vulnerability audits.
+
+Always provide a clear analysis explaining why you are choosing the next step."""),
+            ("user", "Incident Context:\n{context}\n\n{format_instructions}")
         ])
 
         chain = prompt | self.llm | self.parser
         
         try:
             decision_data = chain.invoke({
-                "metrics": metrics.model_dump_json(),
+                "context": context.model_dump_json(),
                 "format_instructions": self.parser.get_format_instructions()
             })
             self.logger.info("decision_made", decision=decision_data)
             return SREDecision(**decision_data)
         except Exception as e:
             self.logger.error("reasoning_failed", error=str(e))
-            return self._mock_reasoning(metrics)
+            return self._mock_reasoning(context)
 
-    def _mock_reasoning(self, metrics: MetricUpdate) -> SREDecision:
-        """Fallback logic if LLM is unavailable or for testing."""
-        if metrics.cpu_percent > 80:
+    def _mock_reasoning(self, context: IncidentContext) -> SREDecision:
+        """Fallback logic for testing multi-step state transitions."""
+        if len(context.history) == 0:
             return SREDecision(
-                analysis="CPU usage is critically high (Mock). Triggering Debugger for root cause analysis.",
+                analysis="Initial CPU spike detected. Delegating to Debugger-Agent for log analysis.",
                 action_required=True,
                 target_agent="Debugger-Agent",
-                task_description="Analyze process list and logs for high CPU usage."
+                task_description="Analyze system logs for CPU-heavy processes."
             )
-        return SREDecision(analysis="All metrics within normal range (Mock).", action_required=False)
+        elif len(context.history) == 1:
+            return SREDecision(
+                analysis="Debugger found a high-CPU process (PID 1234). Delegating to Janitor-Agent for remediation.",
+                action_required=True,
+                target_agent="Janitor-Agent",
+                task_description="Kill process 1234 and restart the service."
+            )
+        else:
+            return SREDecision(
+                analysis="Incident appears resolved after remediation.",
+                action_required=False
+            )
 
 if __name__ == "__main__":
-    # Test with a mock CPU spike
     orchestrator = LeadSRE()
     mock_metrics = MetricUpdate(
         resource_id="server-99", 
@@ -107,6 +139,19 @@ if __name__ == "__main__":
         status="running", 
         timestamp="2026-04-13T12:00:00"
     )
-    decision = orchestrator.analyze_situation(mock_metrics)
-    print(f"\nLead-SRE Analysis:\n{decision.analysis}")
-    print(f"Action Required: {decision.action_required} -> {decision.target_agent}")
+    
+    # Simulate Step 1
+    context = IncidentContext(initial_trigger=mock_metrics)
+    print("--- STEP 1: Initial Trigger ---")
+    decision1 = orchestrator.analyze_situation(context)
+    print(f"Decision: {decision1.analysis}\nTarget: {decision1.target_agent}")
+
+    # Simulate Step 2
+    context.history.append(ActionHistory(
+        agent_name="Debugger-Agent",
+        task="Analyze system logs for CPU-heavy processes.",
+        result="Found process 'heavy_app' (PID 1234) consuming 90% CPU."
+    ))
+    print("\n--- STEP 2: After Debugger Finding ---")
+    decision2 = orchestrator.analyze_situation(context)
+    print(f"Decision: {decision2.analysis}\nTarget: {decision2.target_agent}")
