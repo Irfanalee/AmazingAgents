@@ -23,8 +23,8 @@ class SREDecision(BaseModel):
     """The structured reasoning result from Lead-SRE's decision loop."""
     analysis: str = Field(description="The thought process of the Lead-SRE based on the current context.")
     action_required: bool = Field(description="Whether a sub-agent needs to be triggered.")
-    target_agent: Optional[str] = Field(description="The name of the sub-agent (Monitor, Debugger, Janitor, Sargent).")
-    task_description: Optional[str] = Field(description="The specific instruction for the sub-agent.")
+    target_agent: Optional[str] = Field(default=None, description="The name of the sub-agent (Monitor, Debugger, Janitor, Sargent).")
+    task_description: Optional[str] = Field(default=None, description="The specific instruction for the sub-agent.")
 
 class LeadSRE:
     """The Senior Principal SRE Orchestrator using provider-agnostic LangChain logic."""

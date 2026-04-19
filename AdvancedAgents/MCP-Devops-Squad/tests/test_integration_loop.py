@@ -1,17 +1,13 @@
 import unittest
 import json
 import os
-from src.agents.monitor import MonitorAgent
-from src.orchestrator.lead_sre import LeadSRE
-from src.agents.janitor import JanitorAgent
+from src.orchestrator.incident_runner import IncidentRunner
 
 class TestSquadIntegration(unittest.TestCase):
-    """Integration test for the full SRE Squad lifecycle."""
+    """Integration test for the full SRE Squad lifecycle using IncidentRunner."""
     
     def setUp(self):
-        self.monitor = MonitorAgent()
-        self.orchestrator = LeadSRE()
-        self.janitor = JanitorAgent()
+        self.runner = IncidentRunner()
         self.resource_id = "integration-test-server"
         
         # Cleanup pending approvals
@@ -19,36 +15,38 @@ class TestSquadIntegration(unittest.TestCase):
             with open("config/pending_approvals.json", "w") as f:
                 json.dump([], f)
 
-    def test_full_loop_cpu_spike(self):
-        """Simulate a CPU spike and ensure the squad responds correctly."""
+    def test_full_incident_lifecycle(self):
+        """Simulate a full incident lifecycle from detection to remediation."""
         
-        # 1. MONITOR: Detect high CPU
-        metrics = self.monitor.get_metrics(self.resource_id)
-        self.assertTrue(metrics.cpu_percent > 80.0)
+        # Run the full loop
+        final_context = self.runner.run(self.resource_id)
         
-        # 2. LEAD-SRE: Analyze and decide to fix
-        decision = self.orchestrator.analyze_situation(metrics)
-        self.assertTrue(decision.action_required)
+        # Verify the loop progressed
+        # Step 1: Monitor detected high CPU (implicit in runner.run)
+        # Step 2: Lead-SRE should have delegated to Debugger-Agent (in mock mode)
+        # Step 3: Lead-SRE should have delegated to Janitor-Agent (in mock mode)
+        # Step 4: Final iteration should mark as resolved
         
-        # 3. JANITOR: Request execution (should trigger HITL for destructive fix)
-        # Assuming the reasoning decides on a 'kill' command for a heavy process
-        fix_command = "kill -9 1234" 
-        result = self.janitor.request_execution(
-            command=fix_command, 
-            justification=decision.analysis, 
-            resource_id=self.resource_id
-        )
+        self.assertTrue(len(final_context.history) >= 2, f"History too short: {len(final_context.history)}")
         
-        # 4. VERIFY: Staged for manual approval
-        self.assertEqual(result["status"], "pending_hitl")
+        # Check first action was Debugger
+        self.assertEqual(final_context.history[0].agent_name, "Debugger-Agent")
         
-        with open("config/pending_approvals.json", "r") as f:
-            approvals = json.load(f)
-            self.assertTrue(any(a["command"] == fix_command for a in approvals))
+        # Check second action was Janitor
+        self.assertEqual(final_context.history[1].agent_name, "Janitor-Agent")
+        
+        # Verify Janitor task was staged for HITL (since mock 'kill' is sensitive)
+        janitor_result = json.loads(final_context.history[1].result)
+        self.assertEqual(janitor_result["status"], "pending_hitl")
+        
+        # Check resolved status
+        # Note: in my mock, it might take 3 calls to be 'not action_required'
+        self.assertTrue(final_context.is_resolved)
             
-        print("\n--- Integration Test Passed ---")
-        print(f"Decision: {decision.analysis}")
-        print(f"Staged Fix: {fix_command}")
+        print("\n--- Multi-Step Integration Test Passed ---")
+        print(f"Total Steps: {len(final_context.history)}")
+        for step in final_context.history:
+            print(f"- {step.agent_name}: {step.task}")
 
 if __name__ == "__main__":
     unittest.main()
