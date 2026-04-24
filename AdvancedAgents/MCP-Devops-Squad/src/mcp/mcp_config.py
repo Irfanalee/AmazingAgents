@@ -10,6 +10,9 @@ class MCPSettings(BaseSettings):
     AI_API_KEY: Optional[str] = None
     AI_BASE_URL: Optional[str] = None # For Ollama or custom endpoints
 
+    # Memory Settings
+    CHROMA_PERSIST_DIR: str = "./.chroma"
+
     # MCP Server Settings
     DOCKER_MCP_URI: Optional[str] = None
     DOCKER_MCP_COMMAND: Optional[str] = "docker"

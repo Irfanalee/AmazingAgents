@@ -6,6 +6,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from src.utils.logger import setup_logger
 from src.agents.monitor import MetricUpdate
 from src.mcp.mcp_config import get_mcp_config
+from src.orchestrator.memory import MemoryManager
 
 class ActionHistory(BaseModel):
     """Records an action taken by a sub-agent and its result."""
@@ -35,6 +36,7 @@ class LeadSRE:
         self.logger = setup_logger(self.name)
         self.config = get_mcp_config()
         self.llm = self._init_llm()
+        self.memory = MemoryManager()
         self.parser = JsonOutputParser(pydantic_object=SREDecision)
 
     def _init_llm(self):
@@ -74,19 +76,30 @@ class LeadSRE:
         if not self.llm:
             return self._mock_reasoning(context)
 
+        # Query long-term memory for similar incidents
+        past_incidents = self.memory.search_similar_incidents(context.initial_trigger)
+        past_context = ""
+        if past_incidents:
+            past_context = "\nSIMILAR PAST INCIDENTS:\n" + "\n".join([
+                f"- Symptoms: {m.symptoms_description}\n  Root Cause: {m.root_cause}\n  Successful Fix: {m.remediation_action}"
+                for m in past_incidents
+            ])
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a Senior Principal SRE. Your goal is to resolve an incident through a multi-step investigation loop.
             
 Review the 'Incident Context' carefully. It contains:
 1. The initial trigger (metrics that started the investigation).
 2. A history of actions taken so far and their results.
+{past_incidents}
 
 Your decision should:
 - Not repeat actions that have already been performed with the same parameters.
 - Provide explicit `task_kwargs` for the target agent.
-- If delegating to Janitor-Agent, `task_kwargs` should be: {"command": "...", "justification": "..."}.
-- If delegating to Sargent-Agent, `task_kwargs` should be: {"target": "...", "scan_type": "image|path"}.
-- If delegating to Debugger-Agent, `task_kwargs` can be: {"log_path": "..."} OR {"repo": "...", "file_path": "..."}.
+- If delegating to Janitor-Agent, `task_kwargs` should be: {{"command": "...", "justification": "..."}}.
+- If delegating to Sargent-Agent, `task_kwargs` should be: {{"target": "...", "scan_type": "image|path"}}.
+- If delegating to Debugger-Agent, `task_kwargs` can be: {{"log_path": "..."}} OR {{"repo": "...", "file_path": "..."}}.
+- If a SIMILAR PAST INCIDENT is provided and its root cause matches the current symptoms, consider applying the 'Successful Fix' immediately via Janitor-Agent to save time.
 - If the issue is resolved or no further action is required, set 'action_required' to False.
 
 Available sub-agents:
@@ -104,6 +117,7 @@ Always provide a clear analysis explaining why you are choosing the next step.""
         try:
             decision_data = chain.invoke({
                 "context": context.model_dump_json(),
+                "past_incidents": past_context,
                 "format_instructions": self.parser.get_format_instructions()
             })
             self.logger.info("decision_made", decision=decision_data)

@@ -36,6 +36,8 @@ class IncidentRunner:
             if not decision.action_required:
                 self.logger.info("incident_resolved_or_no_action", analysis=decision.analysis)
                 context.is_resolved = True
+                # Save to long-term memory upon resolution
+                self.lead_sre.memory.save_resolved_incident(context)
                 break
                 
             agent_name = decision.target_agent

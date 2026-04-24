@@ -9,6 +9,8 @@ langchain-google-vertexai
 langchain-openai
 langchain-anthropic
 langchain-ollama
+langchain-chroma
+chromadb
 langchain-core
 langchain-community
 structlog
