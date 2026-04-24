@@ -11,6 +11,7 @@ class ActionHistory(BaseModel):
     """Records an action taken by a sub-agent and its result."""
     agent_name: str
     task: str
+    task_kwargs: Optional[Dict[str, Any]] = None
     result: str
 
 class IncidentContext(BaseModel):
@@ -24,7 +25,8 @@ class SREDecision(BaseModel):
     analysis: str = Field(description="The thought process of the Lead-SRE based on the current context.")
     action_required: bool = Field(description="Whether a sub-agent needs to be triggered.")
     target_agent: Optional[str] = Field(default=None, description="The name of the sub-agent (Monitor, Debugger, Janitor, Sargent).")
-    task_description: Optional[str] = Field(default=None, description="The specific instruction for the sub-agent.")
+    task_description: Optional[str] = Field(default=None, description="A high-level summary of the task.")
+    task_kwargs: Optional[Dict[str, Any]] = Field(default=None, description="The specific keyword arguments for the agent's primary method (e.g. {'command': '...', 'justification': '...'} for Janitor).")
 
 class LeadSRE:
     """The Senior Principal SRE Orchestrator using provider-agnostic LangChain logic."""
@@ -81,8 +83,10 @@ Review the 'Incident Context' carefully. It contains:
 
 Your decision should:
 - Not repeat actions that have already been performed with the same parameters.
-- If you have enough information, delegate a fix to the Janitor-Agent.
-- If you need more info (logs, security scan, code audit), delegate to the appropriate sub-agent.
+- Provide explicit `task_kwargs` for the target agent.
+- If delegating to Janitor-Agent, `task_kwargs` should be: {"command": "...", "justification": "..."}.
+- If delegating to Sargent-Agent, `task_kwargs` should be: {"target": "...", "scan_type": "image|path"}.
+- If delegating to Debugger-Agent, `task_kwargs` can be: {"log_path": "..."} OR {"repo": "...", "file_path": "..."}.
 - If the issue is resolved or no further action is required, set 'action_required' to False.
 
 Available sub-agents:
@@ -109,24 +113,37 @@ Always provide a clear analysis explaining why you are choosing the next step.""
             return self._mock_reasoning(context)
 
     def _mock_reasoning(self, context: IncidentContext) -> SREDecision:
-        """Fallback logic for testing multi-step state transitions."""
-        if len(context.history) == 0:
+        """Fallback logic for testing multi-step state transitions with structured payloads."""
+        history_len = len(context.history)
+        resource_id = context.initial_trigger.resource_id
+
+        if history_len == 0:
             return SREDecision(
-                analysis="Initial CPU spike detected. Delegating to Debugger-Agent for log analysis.",
+                analysis="Initial CPU spike detected. Analyzing system logs first.",
                 action_required=True,
                 target_agent="Debugger-Agent",
-                task_description="Analyze system logs for CPU-heavy processes."
+                task_description="Analyze system logs for CPU-heavy processes.",
+                task_kwargs={"log_path": f"/var/log/{resource_id}.log"}
             )
-        elif len(context.history) == 1:
+        elif history_len == 1:
             return SREDecision(
-                analysis="Debugger found a high-CPU process (PID 1234). Delegating to Janitor-Agent for remediation.",
+                analysis="Log analysis shows process 'heavy_app' is active. Running security scan on the container image as per SOP.",
+                action_required=True,
+                target_agent="Sargent-Agent",
+                task_description="Scan container image for vulnerabilities.",
+                task_kwargs={"target": f"{resource_id}-image", "scan_type": "image"}
+            )
+        elif history_len == 2:
+            return SREDecision(
+                analysis="Security scan complete. Remediation required: killing high-CPU process and restarting.",
                 action_required=True,
                 target_agent="Janitor-Agent",
-                task_description="Kill process 1234 and restart the service."
+                task_description="Kill process and restart service.",
+                task_kwargs={"command": "kill -9 1234 && systemctl restart app", "justification": "High CPU and no critical CVEs found."}
             )
         else:
             return SREDecision(
-                analysis="Incident appears resolved after remediation.",
+                analysis="Incident appears resolved after full SOP (Debug -> Security -> Janitor).",
                 action_required=False
             )
 

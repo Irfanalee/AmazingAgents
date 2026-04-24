@@ -40,47 +40,44 @@ class IncidentRunner:
                 
             agent_name = decision.target_agent
             task = decision.task_description
-            self.logger.info("delegating_task", agent=agent_name, task=task)
+            kwargs = decision.task_kwargs or {}
+            self.logger.info("delegating_task", agent=agent_name, task=task, kwargs=kwargs)
             
-            result_str = self._dispatch_to_agent(agent_name, task, resource_id)
+            result_str = self._dispatch_to_agent(agent_name, task, resource_id, kwargs)
             
             # Record history
             context.history.append(ActionHistory(
                 agent_name=agent_name,
                 task=task,
+                task_kwargs=kwargs,
                 result=result_str
             ))
             
         return context
 
-    def _dispatch_to_agent(self, agent_name: str, task: str, resource_id: str) -> str:
-        """Simple dispatcher to translate Lead-SRE tasks into agent method calls."""
+    def _dispatch_to_agent(self, agent_name: str, task: str, resource_id: str, kwargs: Dict[str, Any]) -> str:
+        """Dispatcher that uses structured task_kwargs from the Lead-SRE."""
         try:
             if agent_name == "Debugger-Agent":
-                # Basic heuristic: if it mentions 'code' or 'repo', analyze code. Else logs.
-                if "code" in task.lower() or "repo" in task.lower():
-                    res = self.debugger.analyze_code("org/repo", "src/main.py")
+                if "repo" in kwargs and "file_path" in kwargs:
+                    res = self.debugger.analyze_code(kwargs["repo"], kwargs["file_path"])
+                elif "log_path" in kwargs:
+                    res = self.debugger.analyze_logs(kwargs["log_path"])
                 else:
+                    # Fallback to heuristic if kwargs are missing but shouldn't be
                     res = self.debugger.analyze_logs(f"/var/log/{resource_id}.log")
                 return json.dumps(res)
                 
             elif agent_name == "Sargent-Agent":
-                # Heuristic: 'image' vs 'path'
-                scan_type = "image" if "image" in task.lower() else "path"
-                res = self.sargent.run_security_scan(f"{resource_id}-image", scan_type=scan_type)
+                target = kwargs.get("target", f"{resource_id}-image")
+                scan_type = kwargs.get("scan_type", "image")
+                res = self.sargent.run_security_scan(target, scan_type=scan_type)
                 return res.model_dump_json()
                 
             elif agent_name == "Janitor-Agent":
-                # We assume the task description contains the command, or we use a default based on the task
-                command = "systemctl restart app"
-                if "kill" in task.lower():
-                    command = "kill -9 1234"
-                elif "restart" in task.lower():
-                    command = "systemctl restart app"
-                elif "rm" in task.lower() or "cleanup" in task.lower():
-                    command = "rm -rf /tmp/stale-logs"
-                
-                res = self.janitor.request_execution(command, justification=task, resource_id=resource_id)
+                command = kwargs.get("command", "systemctl restart app")
+                justification = kwargs.get("justification", task)
+                res = self.janitor.request_execution(command, justification=justification, resource_id=resource_id)
                 return json.dumps(res)
                 
             elif agent_name == "Monitor-Agent":

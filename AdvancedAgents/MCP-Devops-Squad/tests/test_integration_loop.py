@@ -23,30 +23,36 @@ class TestSquadIntegration(unittest.TestCase):
         
         # Verify the loop progressed
         # Step 1: Monitor detected high CPU (implicit in runner.run)
-        # Step 2: Lead-SRE should have delegated to Debugger-Agent (in mock mode)
-        # Step 3: Lead-SRE should have delegated to Janitor-Agent (in mock mode)
-        # Step 4: Final iteration should mark as resolved
+        # Step 2: Lead-SRE delegated to Debugger-Agent (mock step 0)
+        # Step 3: Lead-SRE delegated to Sargent-Agent (mock step 1)
+        # Step 4: Lead-SRE delegated to Janitor-Agent (mock step 2)
+        # Step 5: Final iteration marked as resolved
         
-        self.assertTrue(len(final_context.history) >= 2, f"History too short: {len(final_context.history)}")
+        self.assertTrue(len(final_context.history) >= 3, f"History too short: {len(final_context.history)}")
         
         # Check first action was Debugger
         self.assertEqual(final_context.history[0].agent_name, "Debugger-Agent")
+        self.assertIn("log_path", final_context.history[0].task_kwargs)
         
-        # Check second action was Janitor
-        self.assertEqual(final_context.history[1].agent_name, "Janitor-Agent")
+        # Check second action was Sargent
+        self.assertEqual(final_context.history[1].agent_name, "Sargent-Agent")
+        self.assertEqual(final_context.history[1].task_kwargs["scan_type"], "image")
         
-        # Verify Janitor task was staged for HITL (since mock 'kill' is sensitive)
-        janitor_result = json.loads(final_context.history[1].result)
+        # Check third action was Janitor
+        self.assertEqual(final_context.history[2].agent_name, "Janitor-Agent")
+        self.assertIn("command", final_context.history[2].task_kwargs)
+        
+        # Verify Janitor task was staged for HITL
+        janitor_result = json.loads(final_context.history[2].result)
         self.assertEqual(janitor_result["status"], "pending_hitl")
         
         # Check resolved status
-        # Note: in my mock, it might take 3 calls to be 'not action_required'
         self.assertTrue(final_context.is_resolved)
             
         print("\n--- Multi-Step Integration Test Passed ---")
         print(f"Total Steps: {len(final_context.history)}")
         for step in final_context.history:
-            print(f"- {step.agent_name}: {step.task}")
+            print(f"- {step.agent_name}: {step.task} (Args: {step.task_kwargs})")
 
 if __name__ == "__main__":
     unittest.main()
