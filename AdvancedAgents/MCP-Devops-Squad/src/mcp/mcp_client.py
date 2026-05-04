@@ -13,7 +13,7 @@ class MCPClient:
         self._sessions: Dict[str, ClientSession] = {}
 
     async def connect_to_server(self, name: str, command: str, args: List[str]):
-        """Connect to an MCP server using stdio transport."""
+        """Connect to an MCP server using stdio transport and verify connection."""
         self.logger.info("connecting_to_server", server=name, command=command, args=args)
         server_params = StdioServerParameters(command=command, args=args, env=None)
         
@@ -21,8 +21,11 @@ class MCPClient:
             read, write = await self._exit_stack.enter_async_context(stdio_client(server_params))
             session = await self._exit_stack.enter_async_context(ClientSession(read, write))
             await session.initialize()
+            
+            # Verification step: list tools to ensure the server is responsive
+            tools = await session.list_tools()
             self._sessions[name] = session
-            self.logger.info("connected_to_server", server=name)
+            self.logger.info("connected_to_server", server=name, tools_found=len(tools.tools))
         except Exception as e:
             self.logger.error("connection_failed", server=name, error=str(e))
             raise

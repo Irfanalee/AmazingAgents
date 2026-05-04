@@ -73,7 +73,7 @@ class JanitorAgent:
             }
 
         # Step 3: Direct Execution (for safe commands)
-        return self._execute_mcp_command(request.command)
+        return self.execute_approved_command(request.command)
 
     def _stage_for_approval(self, request: CommandRequest):
         """Write the request to the pending approvals file for HITL."""
@@ -85,9 +85,9 @@ class JanitorAgent:
         with open(self.approval_file, "w") as f:
             json.dump(approvals, f, indent=2)
 
-    def _execute_mcp_command(self, command: str):
-        """Execute command via Shell MCP server."""
-        self.logger.info("executing_remediation", command=command)
+    def execute_approved_command(self, command: str):
+        """Execute command via Shell MCP server. Public method for HITL CLI."""
+        self.logger.info("executing_approved_command", command=command)
         self._ensure_connected()
         
         if self.connected:

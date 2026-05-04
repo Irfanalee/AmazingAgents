@@ -4,6 +4,7 @@ google-cloud-aiplatform
 pyyaml
 pydantic-settings
 python-dotenv
+langchain-google-genai
 langchain
 langchain-google-vertexai
 langchain-openai

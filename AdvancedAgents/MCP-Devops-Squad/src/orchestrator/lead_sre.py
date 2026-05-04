@@ -47,11 +47,10 @@ class LeadSRE:
 
         try:
             if provider == "google":
-                from langchain_google_vertexai import VertexAI
-                return VertexAI(model_name=model_name)
-            
-            elif provider == "openai":
-                from langchain_openai import ChatOpenAI
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                return ChatGoogleGenerativeAI(model=model_name, google_api_key=self.config.AI_API_KEY)
+
+            elif provider == "openai":                from langchain_openai import ChatOpenAI
                 return ChatOpenAI(model=model_name, api_key=self.config.AI_API_KEY)
             
             elif provider == "anthropic":
